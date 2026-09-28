@@ -26,9 +26,10 @@ log = logging.getLogger(__name__)
 
 MAX_FFILL_DAYS = 10        # carry a price forward over weekends / holidays / missed runs
 MAX_EFFECTIVE_BACKFILL = 31
-SOURCE_RANK = {"eppo_api": 5, "eppo_api_effective": 4, "manual": 3, "eppo_structure": 2, "seed_structure": 1}
+SOURCE_RANK = {"eppo_api": 6, "eppo_api_effective": 5, "manual": 4, "eppo_structure": 3, "seed_structure": 2,
+               "eppo_archive": 1}
 SRC_CODE = {"eppo_api": "a", "eppo_api_effective": "e", "eppo_structure": "s", "manual": "m",
-            "seed_structure": "s", "carried_forward": "f"}
+            "seed_structure": "s", "eppo_archive": "r", "carried_forward": "f"}
 # sources that list only the days a price CHANGED -> carry forward until the next change
 CHANGE_LOG_SOURCES = {"manual"}
 
@@ -61,9 +62,42 @@ def stale_brands(brand_rows: list[dict]) -> dict[str, str]:
     return out
 
 
+def archive_events(rows: list[dict]) -> tuple[dict[tuple[str, str], list[tuple[str, float | None]]], str | None]:
+    """EPPO per-brand archive (one snapshot per price announcement) -> change events per
+    (brand, product): (date, price) when a price takes effect, (date, None) when the brand
+    stops selling it. Returns (events, last announce date = end of the archive)."""
+    files: dict[str, list[dict]] = defaultdict(list)
+    for r in rows:
+        files[r["announce_date"]].append(r)
+    state: dict[tuple[str, str], tuple[str, float]] = {}
+    events: dict[tuple[str, str], list[tuple[str, float | None]]] = defaultdict(list)
+    for ad in sorted(files):
+        present = set()
+        brands_in_file = {r["brand_code"] for r in files[ad]}
+        for r in files[ad]:
+            k = (r["brand_code"], r["product_code"])
+            price = _num(r.get("price"))
+            if price is None:
+                continue
+            present.add(k)
+            eff = r.get("effective_date") or ad
+            last = state.get(k)
+            if last is None or last[1] != price:
+                if last is not None and eff <= last[0]:
+                    eff = ad                       # inconsistent effective date -> announce date
+                eff = min(eff, ad)
+                events[k].append((eff, price))
+                state[k] = (eff, price)
+        for k in [k for k in state if k[0] in brands_in_file and k not in present]:
+            events[k].append((ad, None))          # listed as 0 / missing -> not sold any more
+            del state[k]
+    return events, (max(files) if files else None)
+
+
 def build_daily(brand_rows: list[dict], structure_rows: list[dict], end_date: str,
-                manual_rows: list[dict] | None = None) -> list[dict]:
+                manual_rows: list[dict] | None = None, archive_rows: list[dict] | None = None) -> list[dict]:
     obs: dict[tuple[str, str], dict[str, tuple[float, str]]] = defaultdict(dict)
+    stops: dict[tuple[str, str], set[str]] = defaultdict(set)
 
     def put(b, p, d, price, src):
         cur = obs[(b, p)].get(d)
@@ -78,6 +112,16 @@ def build_daily(brand_rows: list[dict], structure_rows: list[dict], end_date: st
 
     for r in manual_rows or []:
         put(r["brand_code"], r["product_code"], r["date"], r["price"], "manual")
+
+    arch_events, archive_end = archive_events(archive_rows or [])
+    for (b, p), evs in arch_events.items():
+        if b not in config.BRANDS or p not in config.PRODUCTS:
+            continue
+        for d, price in evs:
+            if price is None:
+                stops[(b, p)].add(d)
+            else:
+                put(b, p, d, price, "eppo_archive")
 
     stale = stale_brands(brand_rows)
     for r in brand_rows:
@@ -105,13 +149,22 @@ def build_daily(brand_rows: list[dict], structure_rows: list[dict], end_date: st
             if d in series:
                 price, src = series[d]
                 last_val, last_real, last_src = price, d, src
-            elif last_val is not None and (last_src in CHANGE_LOG_SOURCES
-                                           or (_d(d) - _d(last_real)).days <= MAX_FFILL_DAYS):
+            elif d in stops.get((b, p), ()):
+                last_val = None
+                continue
+            elif last_val is not None and (
+                    last_src in CHANGE_LOG_SOURCES
+                    # archive = one row per price change -> valid until the next change, but never
+                    # past the end of the archive (10 Jul 2018): later prices are unknown
+                    or (last_src == "eppo_archive" and d <= archive_end)
+                    or (last_src != "eppo_archive" and (_d(d) - _d(last_real)).days <= MAX_FFILL_DAYS)):
                 price, src = last_val, "carried_forward"
             else:
                 continue
+            if d < config.HISTORY_START:
+                continue
             out.append({"date": d, "brand_code": b, "product_code": p, "price": round(price, 2),
-                        "source": src, "is_stale": 1 if b in stale else 0})
+                        "source": src, "is_stale": 1 if b in stale and d >= stale[b] else 0})
     out.sort(key=lambda r: (r["date"], config.BRANDS.get(r["brand_code"], {}).get("order", 99),
                             config.PRODUCTS.get(r["product_code"], {}).get("order", 99)))
     return out
@@ -199,6 +252,9 @@ CREATE TABLE fact_retail_daily (date TEXT, year INT, month TEXT, brand_code TEXT
 CREATE TABLE fact_api_snapshot (snapshot_date TEXT, brand_code TEXT, product_code TEXT, price REAL,
                           effective_date TEXT, effective_time TEXT, fetched_at TEXT,
                           PRIMARY KEY (snapshot_date, brand_code, product_code));
+CREATE TABLE fact_archive_retail (announce_date TEXT, brand_code TEXT, product_code TEXT, price REAL,
+                          effective_date TEXT, effective_time TEXT, source_file TEXT,
+                          PRIMARY KEY (announce_date, brand_code, product_code));
 CREATE TABLE fact_price_structure (date TEXT, product_code TEXT, product_label TEXT,
                           ex_refinery REAL, refinery_discount REAL, excise_tax REAL, municipal_tax REAL,
                           oil_fund REAL, conservation_fund REAL, wholesale REAL, vat_wholesale REAL,
@@ -221,9 +277,11 @@ CREATE VIEW v_latest AS
 CREATE VIEW v_changes AS
   SELECT date, brand_code, product_code, prev_price, price, ROUND(price - prev_price, 2) AS change
   FROM (SELECT date, brand_code, product_code, price,
-               LAG(price) OVER (PARTITION BY brand_code, product_code ORDER BY date) AS prev_price
+               LAG(price) OVER (PARTITION BY brand_code, product_code ORDER BY date) AS prev_price,
+               LAG(date) OVER (PARTITION BY brand_code, product_code ORDER BY date) AS prev_date
         FROM fact_retail_daily)
-  WHERE prev_price IS NOT NULL AND price <> prev_price;
+  WHERE prev_price IS NOT NULL AND price <> prev_price
+    AND julianday(date) - julianday(prev_date) = 1;   -- ignore jumps across data gaps
 CREATE VIEW v_vs_ptt AS
   SELECT f.date, f.brand_code, f.product_code, f.price, p.price AS ptt_price,
          ROUND(f.price - p.price, 2) AS diff_vs_ptt
@@ -239,7 +297,7 @@ def _num(v):
         return None
 
 
-def build_sqlite(daily, brand_rows, structure_rows, stale) -> sqlite3.Connection:
+def build_sqlite(daily, brand_rows, structure_rows, stale, archive_rows=()) -> sqlite3.Connection:
     config.SQLITE_DB.parent.mkdir(parents=True, exist_ok=True)
     if config.SQLITE_DB.exists():
         config.SQLITE_DB.unlink()
@@ -256,6 +314,9 @@ def build_sqlite(daily, brand_rows, structure_rows, stale) -> sqlite3.Connection
     con.executemany("INSERT OR REPLACE INTO fact_api_snapshot VALUES (?,?,?,?,?,?,?)", [
         (r["snapshot_date"], r["brand_code"], r["product_code"], _num(r["price"]), r["effective_date"],
          r["effective_time"], r["fetched_at"]) for r in brand_rows])
+    con.executemany("INSERT OR REPLACE INTO fact_archive_retail VALUES (?,?,?,?,?,?,?)", [
+        (r["announce_date"], r["brand_code"], r["product_code"], _num(r["price"]), r["effective_date"],
+         r["effective_time"], r["source_file"]) for r in archive_rows])
     cols = config.STRUCTURE_COLUMNS
     con.executemany(f"INSERT OR REPLACE INTO fact_price_structure VALUES ({','.join('?' * len(cols))})", [
         tuple(r.get(c) if c in ("date", "product_code", "product_label", "source_file") else _num(r.get(c))
@@ -344,9 +405,12 @@ def write_excel(pivots, daily, path) -> None:
     notes = [
         ["รายงานราคาขายปลีกน้ำมัน (กรุงเทพฯ และปริมณฑล) - ที่มา: สนพ. (EPPO)"],
         ["หน่วย: บาท/ลิตร  |  ค่าเฉลี่ย = เฉลี่ยทุกวันปฏิทินที่มีราคา (ถ่วงตามจำนวนวันที่ราคานั้นมีผล)"],
-        ["ก่อนวันที่เริ่มเก็บรายแบรนด์ ข้อมูลย้อนหลังมีเฉพาะ ปตท. (จากไฟล์โครงสร้างราคาน้ำมันรายวันของ สนพ.)"],
+        ["1 ม.ค. - 10 ก.ค. 2561: ทุกแบรนด์ จากคลังประกาศราคารายแบรนด์ของ สนพ. (ข้อมูลเดียวกับปุ่ม Generate; สนพ. หยุดอัปเดต 10 ก.ค. 2561)"],
+        ["11 ก.ค. 2561 - วันก่อนเริ่มเก็บรายวัน: สนพ. มีเฉพาะราคา ปตท. (ไฟล์โครงสร้างราคาน้ำมันรายวัน) -> แบรนด์อื่นเว้นว่าง ไม่มีการเดาตัวเลข"],
+        ["ข้อควรระวัง: ค่าเฉลี่ยรายปี 2561 ของแบรนด์อื่นคิดจาก ม.ค.-ก.ค. เท่านั้น (ดูจำนวนวันใน v_yearly.days ของไฟล์ SQLite)"],
         ["source ในชีท Data: eppo_api = ดึงจาก API รายวัน, eppo_api_effective = วันที่ราคานั้นมีผลตาม API,"],
-        ["  eppo_structure/seed_structure = จากไฟล์โครงสร้างราคา, carried_forward = ใช้ราคาล่าสุดต่อ (วันหยุด/ไม่มีไฟล์)"],
+        ["  eppo_structure/seed_structure = จากไฟล์โครงสร้างราคา, eppo_archive = คลังปุ่ม Generate ปี 2561,"],
+        ["  carried_forward = ใช้ราคาล่าสุดต่อ (วันหยุด / ราคาจากคลังมีผลจนถึงประกาศครั้งถัดไป)"],
         ["ต้องการ PivotTable เอง: ไปที่ชีท Data > Insert > PivotTable (ข้อมูลเป็น Excel Table ชื่อ tblDaily)"],
     ]
     for n in notes:
@@ -437,13 +501,32 @@ def build_dashboard_json(con, daily, structure_rows, brand_rows, stale, warnings
         c["first_real"] = min(c["first_real"], r["date"])
         c["dates"].add(r["date"])
         c["sources"].add(r["source"])
+    all_by_brand: dict[str, set] = defaultdict(set)
+    for r in daily:
+        all_by_brand[r["brand_code"]].add(r["date"])
     for b, c in coverage.items():
         src = c.pop("sources")
-        c["days"] = len(c.pop("dates"))
+        c["real_days"] = len(c.pop("dates"))       # days with an observation (not carried forward)
+        c["days"] = len(all_by_brand[b])           # days that have a price
+        # contiguous periods that have a price (incl. carried-forward days) -> [[from, to], ...]
+        ranges, prev = [], None
+        for d in sorted(all_by_brand[b]):
+            if prev and (_d(d) - _d(prev)).days == 1:
+                ranges[-1][1] = d
+            else:
+                ranges.append([d, d])
+            prev = d
+        c["ranges"] = ranges
+        parts = []
+        if "eppo_archive" in src:
+            parts.append("คลังราคารายแบรนด์ของ สนพ. (ปุ่ม Generate) ถึง 10 ก.ค. 2561")
+        if src & {"eppo_structure", "seed_structure"}:
+            parts.append("ไฟล์โครงสร้างราคาน้ำมันรายวันของ สนพ.")
         if "manual" in src:
-            c["history_source"] = "มีประวัติที่นำเข้าเอง (data/manual) + ข้อมูลรายวันจาก สนพ."
-        elif src & {"eppo_structure", "seed_structure"}:
-            c["history_source"] = "ย้อนหลังจากไฟล์โครงสร้างราคาน้ำมันรายวันของ สนพ. + ข้อมูลรายวันจาก สนพ."
+            parts.append("ประวัติที่นำเข้าเอง (data/manual)")
+        if src & {"eppo_api", "eppo_api_effective"}:
+            parts.append("ราคารายวันจาก สนพ.")
+        c["history_source"] = " + ".join(parts)
     brand_meta = []
     for code, v in sorted(config.BRANDS.items(), key=lambda kv: kv[1]["order"]):
         keys = [k for k in series if k.startswith(code + "|")]
@@ -456,6 +539,7 @@ def build_dashboard_json(con, daily, structure_rows, brand_rows, stale, warnings
             "first_date": dates[0] if dates else None,
             "latest_date": dates[-1] if dates else None,
             "per_brand_since": first_api,
+            "history_start": config.HISTORY_START,
             "reference_brand": config.STRUCTURE_REFERENCE_BRAND,
             "unit": "บาท/ลิตร",
             "source": "สำนักงานนโยบายและแผนพลังงาน (สนพ./EPPO) - www.eppo.go.th",
@@ -533,7 +617,8 @@ def run(warnings: list[str] | None = None, end_date: str | None = None) -> dict:
                         "แสดงไว้แต่ไม่นำไปเทียบ")
     manual_rows, mwarn = read_manual_history()
     warnings += mwarn
-    daily = build_daily(brand_rows, structure_rows, end_date, manual_rows)
+    archive_rows = read_csv(config.ARCHIVE_CSV)
+    daily = build_daily(brand_rows, structure_rows, end_date, manual_rows, archive_rows)
 
     # (re)create _site from the committed site/ source
     if config.SITE_OUT.exists():
@@ -542,7 +627,7 @@ def run(warnings: list[str] | None = None, end_date: str | None = None) -> dict:
     (config.SITE_OUT / "data").mkdir(exist_ok=True)
     (config.SITE_OUT / ".nojekyll").write_text("")
 
-    con = build_sqlite(daily, brand_rows, structure_rows, stale)
+    con = build_sqlite(daily, brand_rows, structure_rows, stale, archive_rows)
     pivots = build_pivots(con)
     write_pivot_csvs(pivots)
     write_excel(pivots, daily, config.SITE_OUT / "downloads" / "oil_price_report.xlsx")

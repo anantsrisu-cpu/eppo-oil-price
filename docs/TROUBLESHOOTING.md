@@ -22,6 +22,10 @@
 | `EPPO API status is not success` / `'data' missing` | สนพ. เปลี่ยนรูปแบบ API | เปิด `https://www.eppo.go.th/wp-json/oil-api/v1/oil-prices` ในเบราว์เซอร์ เทียบกับ `data/raw/api/…` วันก่อนหน้า แล้วแก้ `scripts/eppo/api.py` |
 | `only N prices returned` / `only N brands returned` | API ส่งข้อมูลมาไม่ครบ (มักชั่วคราว) | รอรอบถัดไป. ถ้าถาวร (เช่นแบรนด์เลิกกิจการ) ลด `MIN_BRANDS_EXPECTED` / `MIN_PRICES_EXPECTED` ใน `config.py` |
 | `price out of range: …` | ตัวเลขผิดปกติ (<10 หรือ >100 บาท) | ตรวจไฟล์ `data/raw/api/…` ถ้าราคาจริงสูงขึ้นมาก ให้ปรับ `PRICE_MIN/PRICE_MAX` |
+| กราฟปี 2561 มีแค่ ปตท. / ตาราง "ข้อมูลที่มีของแต่ละแบรนด์" ไม่มีช่วง ม.ค.–ก.ค. 61 | ไฟล์ `data/archive_retail_brand.csv` หายหรือว่าง | แผงควบคุม → "ดึงย้อนหลังตั้งแต่ 1 ม.ค. 2561 ใหม่" หรือรัน `python scripts/backfill_archive.py` |
+| warning `archive … skipped` / `unknown archive row` | สนพ. เปลี่ยนรูปแบบไฟล์ `retail-*.xls` หรือชื่อแถว | แก้รูปแบบใน `BRAND_PATTERNS` / `PRODUCT_PATTERNS` (`scripts/eppo/archive.py`) |
+| warning `structure 2018-04-2x not available: header row with 'RETAIL' not found` | ไฟล์ช่วง 23 เม.ย. – 22 พ.ค. 2561 ของ สนพ. ไม่มีคอลัมน์ราคาขายปลีก | ปกติ — ช่วงนั้นใช้ราคาจากคลังปุ่ม Generate แทน |
+| แบรนด์อื่นไม่มีเส้นช่วง 11 ก.ค. 2561 – 23 ก.ย. 2569 | สนพ. ไม่มีราคารายแบรนด์ช่วงนั้น | ปกติ (ข้อจำกัดของต้นทาง) — ระบบไม่เดาตัวเลข |
 | warning `NEW brand code from EPPO: 'xxx'` | สนพ. เพิ่มแบรนด์ใหม่ | เพิ่ม `"xxx": {...}` ใน `BRANDS` (`config.py`) และสีใน `site/assets/style.css` (`--b-xxx`) — ระหว่างนี้ข้อมูลยังถูกเก็บไว้ครบ |
 | warning `NEW product code from EPPO: 'xxx'` | ชนิดน้ำมันใหม่ | เพิ่มใน `PRODUCTS` (`config.py`) |
 | warning `brand esso: effective date … days old -> marked stale` | สนพ. ยังคืนราคาเก่าของแบรนด์นั้น | ปกติ (เอสโซ่) — ไม่นำไปคำนวณ. ถ้าแบรนด์กลับมาอัปเดต ระบบปลดสถานะเองอัตโนมัติ |

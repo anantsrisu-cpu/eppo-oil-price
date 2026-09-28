@@ -112,7 +112,7 @@ footer { color: var(--muted); font-size: 12px; text-align: center; margin-top: 2
     <div class="checks">
       <label><input type="checkbox" class="pre"> <span><b>มีบัญชี GitHub และล็อกอินอยู่ในเบราว์เซอร์นี้แล้ว</b><br><span class="hint">ยังไม่มี: สมัครฟรีที่ github.com/signup</span></span></label>
       <label><input type="checkbox" class="pre"> <span><b>เปิดยืนยันตัวตน 2 ชั้น (2FA) แล้ว</b><br><span class="hint">github.com → รูปโปรไฟล์ → Settings → Password and authentication → Enable two-factor authentication</span></span></label>
-      <label><input type="checkbox" class="pre"> <span><b>เปิดหน้านี้ด้วย Google Chrome หรือ Microsoft Edge</b><br><span class="hint">และมีอินเทอร์เน็ต · ห้ามปิดหน้านี้ระหว่างติดตั้ง (ประมาณ 15 นาที)</span></span></label>
+      <label><input type="checkbox" class="pre"> <span><b>เปิดหน้านี้ด้วย Google Chrome หรือ Microsoft Edge</b><br><span class="hint">และมีอินเทอร์เน็ต · ห้ามปิดหน้านี้ระหว่างติดตั้ง (ประมาณ 10 นาที)</span></span></label>
     </div>
     <div class="note warn"><b>⚠ ถ้าข้ามข้อนี้จะเกิดปัญหา</b>ถ้าไม่ได้ล็อกอิน GitHub ไว้ ลิงก์สร้าง Token ในขั้นต่อไปจะพาไปหน้าล็อกอินแทน และถ้าไม่มี 2FA บางองค์กรจะไม่ยอมให้สร้าง Token</div>
     <div class="row"><button class="primary big" id="go2" type="button" disabled>ถัดไป →</button></div>
@@ -172,6 +172,7 @@ footer { color: var(--muted); font-size: 12px; text-align: center; margin-top: 2
     </div>
     <div class="note warn"><b>⚠ ขั้นสุดท้ายที่ต้องทำ: ลบ Token</b>เพื่อความปลอดภัย กดปุ่มด้านล่าง → หา Token ชื่อ <code>EPPO-oil-price-installer</code> → กด <b>Delete</b> · (ถ้าจะใช้แผงควบคุมภายหลัง ค่อยสร้าง Token ใหม่ได้)</div>
     <div class="row"><a class="btn" href="https://github.com/settings/tokens" target="_blank" rel="noopener noreferrer">🗑 ไปหน้าลบ Token</a></div>
+    <div class="note info"><b>ℹ ข้อมูลย้อนหลังกำลังดึงต่อบน GitHub (ประมาณ 1–1.5 ชั่วโมง)</b>Dashboard ใช้ข้อมูลตั้งต้นที่แนบมาได้ทันที (ราคาทุกแบรนด์ 1 ม.ค. – 10 ก.ค. 2561 จากคลังข้อมูลปุ่ม Generate ของ สนพ. + ราคา ปตท. 2561–ปัจจุบัน) · เมื่อดึงย้อนหลังเสร็จ จะมีรายละเอียดภาษี/กองทุน/ค่าการตลาดครบทุกวัน และ Dashboard อัปเดตเอง · ปิดหน้านี้ได้เลย</div>
     <div class="note info"><b>ℹ บันทึกลิงก์ Dashboard ไว้</b>กด <code>Ctrl</code>+<code>D</code> ในหน้า Dashboard เพื่อบุ๊กมาร์ก หรือแชร์ลิงก์ให้เพื่อนร่วมงาน (ทุกคนเปิดดูได้ แต่แก้ข้อมูลไม่ได้)</div>
     <div id="doneWarn"></div>
   </section>
@@ -193,7 +194,7 @@ footer { color: var(--muted); font-size: 12px; text-align: center; margin-top: 2
       <h2>สั่งงาน</h2>
       <div class="row">
         <button type="button" class="primary" data-act="daily">⟳ ดึงราคาวันนี้ตอนนี้</button>
-        <button type="button" data-act="backfill">⏮ ดึงย้อนหลังตั้งแต่ 1 ม.ค. 2568 ใหม่</button>
+        <button type="button" data-act="backfill">⏮ ดึงย้อนหลังตั้งแต่ 1 ม.ค. 2561 ใหม่</button>
         <button type="button" data-act="rebuild">🧱 สร้างรายงาน/Dashboard ใหม่</button>
         <button type="button" data-act="update">⬆ อัปเดตโปรแกรมเป็นเวอร์ชันนี้ (ข้อมูลเดิมอยู่ครบ)</button>
       </div>
@@ -220,6 +221,7 @@ const VERSION = '__VERSION__';
 const API = 'https://api.github.com';
 const WF = 'daily-update.yml';
 const DATA_PREFIXES = ['data/', 'reports/'];   // kept when updating an existing install
+const ALWAYS_UPLOAD = ['data/seed/', 'data/archive_retail_brand.csv', 'data/manual/README.md'];   // fixed reference data, safe to (re)write
 
 const $ = (s) => document.querySelector(s);
 function el(tag, attrs, ...kids) { const e = document.createElement(tag); for (const [k, v] of Object.entries(attrs || {})) { if (v == null) continue; if (k === 'class') e.className = v; else e.setAttribute(k, v); } for (const c of kids.flat()) if (c != null) e.append(c instanceof Node ? c : document.createTextNode(String(c))); return e; }
@@ -288,8 +290,9 @@ const TASKS = [
   ['pages', 'เปิดเว็บ Dashboard (GitHub Pages)', 'Source = GitHub Actions'],
   ['security', 'เปิดการป้องกันเพิ่มเติม', 'ห้ามลบ/เขียนทับประวัติ branch main · สแกนรหัสลับ · แจ้งเตือนช่องโหว่'],
   ['register', 'รอ GitHub รู้จักตัวรันอัตโนมัติ', 'ปกติไม่เกิน 1 นาที'],
-  ['dispatch', 'สั่งดึงข้อมูลครั้งแรก (ย้อนหลังตั้งแต่ 1 ม.ค. 2568)', ''],
-  ['run', 'รอดึงข้อมูลและสร้าง Dashboard', 'ประมาณ 10–15 นาที · แสดงขั้นตอนย่อยตามจริง'],
+  ['dispatch', 'สั่งดึงราคาวันนี้และสร้าง Dashboard', ''],
+  ['run', 'รอดึงข้อมูลและเผยแพร่ Dashboard', 'ประมาณ 3–6 นาที · แสดงขั้นตอนย่อยตามจริง'],
+  ['history', 'สั่งดึงข้อมูลย้อนหลังเต็มชุดตั้งแต่ 1 ม.ค. 2561', 'GitHub ทำต่อเองประมาณ 1–1.5 ชม. · ไม่ต้องรอ ปิดหน้านี้ได้'],
 ];
 const state = { done: new Set(), owner: null, repo: null, mode: 'install', runId: null, dispatchedAt: null, pagesUrl: null };
 function renderTasks(cur, curState, detail) {
@@ -320,7 +323,7 @@ async function uploadFiles(owner, repo, onlyCode, report) {
     await gh('PUT', `/repos/${owner}/${repo}/contents/.installer-init`, { message: 'init', content: btoa('init'), branch });
     return uploadFiles(owner, repo, onlyCode, report);
   }
-  const files = onlyCode ? FILES.filter((f) => !DATA_PREFIXES.some((p) => f.path.startsWith(p))) : FILES;
+  const files = onlyCode ? FILES.filter((f) => ALWAYS_UPLOAD.some((p) => f.path.startsWith(p)) || !DATA_PREFIXES.some((p) => f.path.startsWith(p))) : FILES;
   const tree = []; let n = 0;
   const queue = files.slice(); const workers = [];
   for (let w = 0; w < 4; w++) workers.push((async () => {
@@ -464,8 +467,10 @@ async function runInstall() {
     await step('pages', () => enablePages(owner, repo));
     await step('security', () => extraSecurity(owner, repo, warn));
     await step('register', (report) => waitWorkflow(owner, repo, report));
-    await step('dispatch', async () => { state.dispatchedAt = await dispatch(owner, repo, state.mode === 'update' ? 'daily' : 'backfill', state.mode === 'update' ? null : '2025-01-01'); });
+    await step('dispatch', async () => { state.dispatchedAt = await dispatch(owner, repo, 'daily', null); });
     const run = await step('run', (report) => watchRun(owner, repo, state.dispatchedAt, report));
+    // full history (EPPO per-brand archive 2018 + daily price-structure files 2018 -> today) runs on GitHub by itself
+    await step('history', async () => { await dispatch(owner, repo, 'backfill', '2018-01-01'); });
     if (run && run.partial) warn('Dashboard ออนไลน์แล้วด้วยข้อมูลตั้งต้น แต่รอบนี้ดึงข้อมูลจากเว็บ สนพ. ไม่สำเร็จ (อาจถูกไฟร์วอลล์ของ สนพ. บล็อกชั่วคราว) — ระบบจะลองเองอีกครั้งตามเวลา 10:05 น. หรือกด "ดึงราคาวันนี้ตอนนี้" ในแท็บแผงควบคุมภายหลัง');
     const pg = await gh('GET', P + '/pages', null, [404]);
     state.pagesUrl = pg.status === 200 ? pg.json.html_url : `https://${owner.toLowerCase()}.github.io/${repo}/`;
@@ -512,7 +517,7 @@ document.querySelectorAll('[data-act]').forEach((b) => b.addEventListener('click
   b.disabled = true; msg('#actMsg', 'info', 'กำลังทำ…');
   try {
     if (a === 'daily' || a === 'rebuild') await dispatch(mOwner, mRepo, a);
-    if (a === 'backfill') await dispatch(mOwner, mRepo, 'backfill', '2025-01-01');
+    if (a === 'backfill') await dispatch(mOwner, mRepo, 'backfill', '2018-01-01');
     if (a === 'update') { await uploadFiles(mOwner, mRepo, true, (t) => msg('#actMsg', 'info', t)); await dispatch(mOwner, mRepo, 'rebuild'); }
     if (a === 'fix-network') await mgh('POST', P + '/actions/variables', { name: 'EGRESS_POLICY', value: 'audit' }, [409]).then((r) => r.status === 409 ? mgh('PATCH', P + '/actions/variables/EGRESS_POLICY', { name: 'EGRESS_POLICY', value: 'audit' }) : r);
     if (a === 'fix-network-off') await mgh('DELETE', P + '/actions/variables/EGRESS_POLICY', null, [404]);

@@ -11,14 +11,14 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "daily = ดึงราคาวันนี้ | backfill = ดึงย้อนหลังจากไฟล์โครงสร้างราคา | rebuild = สร้างรายงานใหม่"
+        description: "daily = ดึงราคาวันนี้ | backfill = ดึงย้อนหลัง (คลังรายแบรนด์ 2561 + ไฟล์โครงสร้างราคา) | rebuild = สร้างรายงานใหม่"
         type: choice
         options: [daily, backfill, rebuild]
         default: daily
       backfill_start:
         description: "วันที่เริ่ม backfill (YYYY-MM-DD)"
         type: string
-        default: "2025-01-01"
+        default: "2018-01-01"
 
 # Least privilege: nothing by default, each job asks only for what it needs
 permissions: {}
@@ -36,7 +36,7 @@ jobs:
     name: Fetch EPPO data & build
     # Set repository variable RUNNER_LABEL=self-hosted to run on your own PC if EPPO blocks GitHub IPs
     runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
-    timeout-minutes: 45
+    timeout-minutes: 180       # first backfill downloads ~2,100 files politely (1 per second)
     permissions:
       contents: write          # commit data/ and reports/
     outputs:
@@ -83,13 +83,17 @@ jobs:
         continue-on-error: true
         env:
           MODE: ${{ inputs.mode || 'daily' }}
-          START: ${{ inputs.backfill_start || '2025-01-01' }}
+          START: ${{ inputs.backfill_start || '2018-01-01' }}
         run: |
           set -euo pipefail
           case "$MODE" in
             backfill)
               [[ "$START" =~ ^20[0-9]{2}-[01][0-9]-[0-3][0-9]$ ]] || { echo "bad date: $START"; exit 1; }
-              BF=0; python scripts/backfill_structure.py --start "$START" || BF=1
+              BF=0
+              # 1) per-brand archive (all 10 brands, EPPO 'Generate' data, ends 10 Jul 2018)
+              python scripts/backfill_archive.py --no-build || BF=1
+              # 2) PTT price structure files (daily, 2018 -> today; .xls and .xlsx)
+              python scripts/backfill_structure.py --start "$START" || BF=1
               python scripts/fetch_daily.py --skip-structure
               exit $BF ;;
             rebuild)

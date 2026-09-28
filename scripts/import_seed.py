@@ -4,7 +4,10 @@ on day one, even before the first GitHub Actions backfill runs.
 
   data/seed/structure_retail_compact.json -> PTT retail per product, 2025-01-02 .. 2026-09-25
       (retail column of EPPO daily structure files; 443 business days)
-  data/raw/api/2026/09/2026-09-25.json    -> per-brand snapshot of 25 Sep 2026
+  data/seed/structure_retail_2018_2024.txt -> PTT retail per product, 2018-01-03 .. 2024-12-31
+  data/seed/archive_retail_2018.txt       -> ALL 10 brands, EPPO per-brand archive 30 Dec 2017 .. 10 Jul 2018
+                                             (= data behind the 'Generate' button; EPPO stopped it in Jul 2018)
+  data/raw/api/2026/09/*.json             -> per-brand daily snapshots since 25 Sep 2026
 
 Seed rows are tagged source_file='seed:...' and are replaced automatically by the full
 backfill (scripts/backfill_structure.py), which also adds taxes / funds / marketing margin.
@@ -19,7 +22,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from eppo import api, build, config  # noqa: E402
-from eppo.storage import upsert  # noqa: E402
+from eppo.storage import read_csv, upsert  # noqa: E402
 
 
 def expand_compact(obj: dict) -> list[dict]:
@@ -42,14 +45,80 @@ def expand_compact(obj: dict) -> list[dict]:
     return rows
 
 
+def expand_structure_txt(path: Path) -> list[dict]:
+    """structure_retail_2018_2024.txt (delta-encoded change list, see header of the file)."""
+    lines = [ln for ln in path.read_text(encoding="utf-8").splitlines() if ln and not ln.startswith("#")]
+    offs, pos = [], 0
+    for ln in lines:
+        if ln.startswith("D|"):
+            for x in ln[2:].split(","):
+                pos += int(x)
+                offs.append(pos)
+    d0 = date(2018, 1, 3)
+    dates = [(d0 + timedelta(days=o)).isoformat() for o in offs]
+    changes: dict[str, list] = {}
+    for ln in lines:
+        code, _, body = ln.partition("|")
+        if code == "D":
+            continue
+        lst = changes.setdefault(code, [])
+        i = lst[-1][0] if lst else 0
+        for item in body.split(","):
+            di, v = item.split(":")
+            i += int(di)
+            lst.append((i, None if v == "-" else int(v) / 100))
+    rows = []
+    for code, lst in changes.items():
+        for n, (i, v) in enumerate(lst):
+            end = lst[n + 1][0] if n + 1 < len(lst) else len(dates)
+            if v is None:
+                continue
+            for k in range(i, end):
+                rows.append({"date": dates[k], "product_code": code, "product_label": code, "retail": v,
+                             "source_file": "seed:structure_retail_2018_2024.txt"})
+    return rows
+
+
+def expand_archive_txt(path: Path) -> list[dict]:
+    """archive_retail_2018.txt -> rows for data/archive_retail_brand.csv"""
+    brands = ["ptt", "bcp", "shell", "esso", "caltex", "irpc", "pt", "susco1", "pure", "susco2"]
+    rows = []
+    for ln in path.read_text(encoding="utf-8").splitlines():
+        if not ln or ln.startswith("#"):
+            continue
+        ad, src, effs, prices = ln.split("|")
+        a = date.fromisoformat(ad)
+        eff = []
+        for e in effs.split(","):
+            off, _, t = e.partition("@")
+            eff.append(((a - timedelta(days=int(off))).isoformat(), t or "05:00"))
+        for part in prices.split(";"):
+            code, _, vals = part.partition("=")
+            for b, v, (ed, et) in zip(brands, vals.split(","), eff):
+                price = int(v) / 100 if int(v) else ""
+                rows.append({"announce_date": ad, "brand_code": b, "product_code": code, "price": price,
+                             "effective_date": ed if price != "" else "", "effective_time": et if price != "" else "",
+                             "source_file": src})
+    return rows
+
+
 def main() -> int:
     seed = json.loads((config.DATA_DIR / "seed" / "structure_retail_compact.json").read_text(encoding="utf-8"))
     checksum = sum((i + 1) * round(v * 100) for p in seed["retail"].values() for i, v in p)
     if checksum != seed["checksum"]:
         raise SystemExit(f"seed checksum mismatch {checksum} != {seed['checksum']}")
     rows = expand_compact(seed)
+    old = expand_structure_txt(config.DATA_DIR / "seed" / "structure_retail_2018_2024.txt")
+    have_real = {(r["date"], r["product_code"]) for r in read_csv(config.STRUCTURE_CSV)
+                 if not r.get("source_file", "").startswith("seed")}
+    rows = [r for r in old + rows if (r["date"], r["product_code"]) not in have_real]  # never overwrite real rows
     ins, upd = upsert(config.STRUCTURE_CSV, rows, config.STRUCTURE_COLUMNS, key=("date", "product_code"))
     print(f"structure seed: {len(rows)} rows ({ins} new, {upd} updated)")
+
+    arch = expand_archive_txt(config.DATA_DIR / "seed" / "archive_retail_2018.txt")
+    ins, upd = upsert(config.ARCHIVE_CSV, arch, config.ARCHIVE_COLUMNS,
+                      key=("announce_date", "brand_code", "product_code"))
+    print(f"archive seed: {len(arch)} rows ({ins} new, {upd} updated)")
 
     for f in sorted(config.RAW_API_DIR.rglob("*.json")):
         snap = f.stem

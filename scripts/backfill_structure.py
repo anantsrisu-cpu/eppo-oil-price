@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 """One-time (or occasional) history backfill from EPPO daily price-structure files.
 
-Downloads every 'pt-price-st-YYYY-M-D.xlsx' dated >= --start (default 2025-01-01),
+Downloads every 'pt-price-st-YYYY-M-D.xls(x)' dated >= --start (default 2018-01-01),
 parses tax / fund / marketing margin / retail per product and upserts into
 data/price_structure_daily.csv. Skips dates already present unless --force.
 
-  python scripts/backfill_structure.py                    # 2025-01-01 -> today
+  python scripts/backfill_structure.py                    # 2018-01-01 -> today
   python scripts/backfill_structure.py --start 2025-06-01 --end 2025-06-30 --force
 
-Polite: 1 request per second, ~450 files for 2025-2026 => about 10 minutes.
+Polite: 1 request per second, ~2,100 files for 2018-2026 => about 60-90 minutes (first time only;
+later runs skip dates already downloaded). EPPO has no files for July 2019 and no RETAIL column
+in the files of 23 Apr - 22 May 2018 (reported as warnings).
 """
 from __future__ import annotations
 

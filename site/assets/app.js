@@ -4,7 +4,7 @@
   const NS = 'http://www.w3.org/2000/svg';
   const $ = (s) => document.querySelector(s);
   const TH_M = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
-  const RANGES = [['30', '30 วัน'], ['90', '90 วัน'], ['180', '6 เดือน'], ['365', '1 ปี'], ['ytd', 'ปีนี้'], ['all', 'ทั้งหมด']];
+  const RANGES = [['30', '30 วัน'], ['90', '90 วัน'], ['180', '6 เดือน'], ['365', '1 ปี'], ['ytd', 'ปีนี้'], ['1095', '3 ปี'], ['y2018', 'ปี 2561'], ['all', 'ทั้งหมด']];
   const PERIODS = [['daily', 'รายวัน'], ['monthly', 'รายเดือน'], ['yearly', 'รายปี']];
   const DEFAULT = { product: 'gh95', range: '365', period: 'daily', brands: ['ptt', 'bcp', 'shell', 'caltex'], avgPer: 'monthly' };
   let D = null;
@@ -59,12 +59,25 @@
   }
   function range() {
     const L = D.dates.length - 1; const last = D.dates[L];
-    let from;
+    let from; let to = last;
     if (state.range === 'all') from = D.dates[0];
     else if (state.range === 'ytd') from = last.slice(0, 4) + '-01-01';
+    else if (/^y\d{4}$/.test(state.range)) { from = state.range.slice(1) + '-01-01'; to = state.range.slice(1) + '-12-31'; }
     else { const d = new Date(last + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - (+state.range - 1)); from = d.toISOString().slice(0, 10); }
     let i0 = D.dates.findIndex((d) => d >= from); if (i0 < 0) i0 = 0;
-    return [i0, L];
+    let i1 = L; while (i1 > i0 && D.dates[i1] > to) i1--;
+    return [i0, i1];
+  }
+  /** periods where only PTT has data (EPPO has no per-brand history there) inside [i0,i1] */
+  function gapInRange(i0, i1) {
+    const bcp = ((D.coverage || {}).bcp || {}).ranges || [];
+    const from = D.dates[i0]; const to = D.dates[i1];
+    for (let k = 0; k + 1 < bcp.length; k++) {
+      const g0 = bcp[k][1]; const g1 = bcp[k + 1][0];
+      const add = (d, n) => { const x = new Date(d + 'T00:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
+      if (g0 < to && g1 > from) return [add(g0, 1), add(g1, -1)];
+    }
+    return null;
   }
   function brandsWithData(p) { return D.brands.filter((b) => ser(b.code, p)).map((b) => b.code); }
   function visibleBrands() {
@@ -392,14 +405,14 @@
   function coverage() {
     const rows = D.brands.map((b) => {
       const cv = (D.coverage || {})[b.code] || {};
-      const since = cv.first_real ? thDate(cv.first_real) : '—';
-      const note = b.stale ? `สนพ. ยังแสดงราคาเก่า (มีผล ${b.stale_since}) จึงไม่นำมาใช้` : cv.history_source ? cv.history_source
-        : b.code === 'bcp' ? 'สนพ. ไม่มีราคาย้อนหลังรายแบรนด์ — นำเข้าประวัติจากหน้า "ราคาน้ำมันย้อนหลัง" ของบางจากเองได้ (ไฟล์ data/manual/bcp_history.csv)'
-        : 'สนพ. ไม่มีราคาย้อนหลังรายแบรนด์ — เริ่มเก็บทุกวันตั้งแต่ติดตั้งระบบ';
-      return [h('td', {}, h('i', { class: 'dot', style: `background:${color(b.code)}` }), b.th), since, cv.days != null ? String(cv.days) : '0', note];
+      const periods = (cv.ranges || []).map(([a, z]) => (z === D.meta.latest_date ? `${thDate(a)} – ปัจจุบัน` : `${thDate(a)} – ${thDate(z)}`));
+      let note = cv.history_source || '';
+      if (b.stale) note += `${note ? ' · ' : ''}ราคาปัจจุบัน: สนพ. ยังแสดงราคาเก่า (มีผล ${b.stale_since}) จึงไม่นำมาใช้`;
+      if (b.code === 'bcp') note += ' · เติมช่วงที่ขาดได้จากหน้า "ราคาน้ำมันย้อนหลัง" ของบางจาก (data/manual/bcp_history.csv)';
+      return [h('td', {}, h('i', { class: 'dot', style: `background:${color(b.code)}` }), b.th), periods.join(' และ ') || '—', cv.days != null ? String(cv.days) : '0', note || '—'];
     });
-    clear($('#coverage')).append(table(['แบรนด์', 'มีข้อมูลตั้งแต่', 'จำนวนวันที่มีข้อมูลจริง', 'หมายเหตุ'], rows, (i) => (D.brands[i].stale ? 'stale' : null)));
-    setExport('card-coverage', 'ความครอบคลุมข้อมูล', [['แบรนด์', 'มีข้อมูลตั้งแต่', 'จำนวนวัน'], ...D.brands.map((b) => [b.th, ((D.coverage || {})[b.code] || {}).first_real || '', ((D.coverage || {})[b.code] || {}).days || 0])]);
+    clear($('#coverage')).append(table(['แบรนด์', 'ช่วงที่มีข้อมูล', 'จำนวนวันที่มีราคา', 'ที่มา / หมายเหตุ'], rows, (i) => (D.brands[i].stale ? 'stale' : null)));
+    setExport('card-coverage', 'ความครอบคลุมข้อมูล', [['แบรนด์', 'ช่วงที่มีข้อมูล', 'จำนวนวัน', 'ที่มา'], ...D.brands.map((b) => { const cv = (D.coverage || {})[b.code] || {}; return [b.th, (cv.ranges || []).map((r) => r.join(' ถึง ')).join(' ; '), cv.days || 0, cv.history_source || '']; })]);
   }
 
   // ---------------------------------------------------------------- KPIs
@@ -419,7 +432,7 @@
       h('div', { class: 'value' }, value, h('small', {}, 'บาท/ลิตร')), delta ? h('div', { class: 'delta ' + (cls || '') }, delta) : null);
     const d30 = last != null && back != null ? last - back : null;
     host.append(
-      tile(`ราคาล่าสุด ${refName}`, f2(last), d30 == null ? null : (d30 === 0 ? 'ไม่เปลี่ยนจาก 30 วันก่อน' : `${d30 > 0 ? '▲' : '▼'} ${Math.abs(d30).toFixed(2)} จาก 30 วันก่อน`), d30 > 0 ? 'up' : d30 < 0 ? 'down' : ''),
+      tile(`${i1 < D.dates.length - 1 ? 'ราคา ณ ' + thDate(D.dates[li]) : 'ราคาล่าสุด'} ${refName}`, f2(last), d30 == null ? null : (d30 === 0 ? 'ไม่เปลี่ยนจาก 30 วันก่อน' : `${d30 > 0 ? '▲' : '▼'} ${Math.abs(d30).toFixed(2)} จาก 30 วันก่อน`), d30 > 0 ? 'up' : d30 < 0 ? 'down' : ''),
       tile('เฉลี่ยช่วงที่เลือก', f2(avg), `${refName} · ${pts.length} วัน`),
       tile('สูงสุดในช่วง', f2(mx[1]), pts.length ? thDate(D.dates[mx[0]]) : null),
       tile('ต่ำสุดในช่วง', f2(mn[1]), pts.length ? thDate(D.dates[mn[0]]) : null),
@@ -480,8 +493,8 @@
     setExport('card-pivot', `pivot_${p}_${period}`, pivotData);
   }
   function changes() {
-    const p = state.product; const [i0] = range(); const from = D.dates[i0];
-    const list = (D.changes || []).filter((c) => c.product_code === p && c.date >= from);
+    const p = state.product; const [i0, i1] = range(); const from = D.dates[i0]; const to = D.dates[i1];
+    const list = (D.changes || []).filter((c) => c.product_code === p && c.date >= from && c.date <= to);
     $('#changes-hint').textContent = `${product(p).th} · ${list.length} ครั้งในช่วงที่เลือก (ทุกแบรนด์)`;
     const rows = list.slice(0, 300).map((c) => [thDate(c.date),
       h('td', {}, h('i', { class: 'dot', style: `background:${color(c.brand_code)}` }), (brand(c.brand_code) || { th: c.brand_code }).th),
@@ -494,8 +507,10 @@
   function notes() {
     const host = clear($('#notes')); const mt = D.meta;
     host.append(h('p', {}, `ที่มา: ${mt.source}. ราคาขายปลีกมาตรฐานในเขต กทม. นนทบุรี ปทุมธานี สมุทรปราการ (ยังไม่รวมภาษีบำรุงท้องถิ่น).`),
-      h('p', {}, `ข้อมูลรายแบรนด์เริ่มเก็บอัตโนมัติตั้งแต่ ${mt.per_brand_since ? thDate(mt.per_brand_since) : '—'}; ข้อมูลก่อนหน้านั้นเป็นราคา ปตท. จากไฟล์ "โครงสร้างราคาน้ำมัน" รายวันของ สนพ. (ราคาของผู้ค้าที่มีส่วนแบ่งตลาดสูงสุด) โดยวันหยุดใช้ราคาล่าสุดต่อ.`),
-      h('p', {}, 'สนพ. เก็บปุ่มดาวน์โหลดย้อนหลังรายแบรนด์ไว้ถึงเดือนกรกฎาคม 2561 เท่านั้น จึงไม่สามารถย้อนหลังรายแบรนด์ปี 2568 ได้.'));
+      h('p', {}, `ช่วง 1 ม.ค. – 10 ก.ค. 2561: ราคาทุกแบรนด์จากคลังข้อมูล "ราคาขายปลีกน้ำมัน" ของ สนพ. (ข้อมูลเดียวกับปุ่ม Generate / ไอคอนดาวน์โหลด) ซึ่ง สนพ. หยุดอัปเดตตั้งแต่ 10 ก.ค. 2561.`),
+      h('p', {}, `ช่วง 11 ก.ค. 2561 – ${mt.per_brand_since ? thDate(mt.per_brand_since) : '—'}: สนพ. ไม่มีราคารายแบรนด์ มีเฉพาะราคา ปตท. จากไฟล์ "โครงสร้างราคาน้ำมัน" รายวัน (ราคาของผู้ค้าที่มีส่วนแบ่งตลาดสูงสุด) — แบรนด์อื่นจึงเว้นว่างในช่วงนี้ ไม่มีการเดาตัวเลข.`),
+      h('p', {}, `ตั้งแต่ ${mt.per_brand_since ? thDate(mt.per_brand_since) : '—'}: ราคาทุกแบรนด์ดึงอัตโนมัติทุกวัน ~10:05 น. วันหยุดใช้ราคาล่าสุดต่อ.`),
+      h('p', {}, 'ข้อจำกัดของต้นทาง: คลังข้อมูลปี 2561 ไม่มีประกาศครบทุกครั้ง (เช่น การลดราคา 6 มี.ค. และ 9 เม.ย. 2561) — ราคา ปตท. ใช้ไฟล์โครงสร้างราคารายวันซึ่งละเอียดกว่า แบรนด์อื่นในบางวันจึงอาจต่างจาก ปตท. มากกว่าความจริง · สนพ. ไม่มีไฟล์โครงสร้างราคาเดือน ก.ค. 2562 (ช่วงนั้นเว้นว่าง).'));
     for (const w of mt.warnings || []) host.append(h('p', {}, '⚠ ' + w));
   }
 
@@ -517,11 +532,11 @@
         onclick: () => { state.brands = on ? state.brands.filter((x) => x !== b.code) : [...state.brands, b.code]; save(); render(); } },
       h('i', { class: 'dot', style: `background:${color(b.code)}` }), b.th));
     }
-    const [i0] = range(); const nb = $('#notice');
-    const since = D.meta.per_brand_since;
-    if (since && D.dates[i0] < since) {
+    const [i0, i1] = range(); const nb = $('#notice');
+    const gap = gapInRange(i0, i1);
+    if (gap) {
       nb.hidden = false;
-      nb.textContent = `ข้อมูลรายแบรนด์เริ่มเก็บตั้งแต่ ${thDate(since)} · ก่อนหน้านั้นกราฟแสดงเฉพาะ ปตท. (อ้างอิงโครงสร้างราคาน้ำมันของ สนพ.)`;
+      nb.textContent = `ช่วง ${thDate(gap[0])} – ${thDate(gap[1])} สนพ. ไม่มีราคารายแบรนด์ (คลังข้อมูลปุ่ม Generate สิ้นสุด 10 ก.ค. 2561) · ช่วงนี้กราฟแสดงเฉพาะ ปตท. จากไฟล์โครงสร้างราคาน้ำมัน · ดูตาราง "ข้อมูลที่มีของแต่ละแบรนด์"`;
     } else nb.hidden = true;
   }
 

@@ -20,8 +20,10 @@ STRUCTURE_CSV = DATA_DIR / "price_structure_daily.csv"
 SQLITE_DB = SITE_OUT / "downloads" / "oil_prices.sqlite"  # rebuilt every run
 RUN_LOG = DATA_DIR / "run_log.csv"
 
-# History starts on 1 Jan 2025 (= 1 ม.ค. 2568)
-HISTORY_START = "2025-01-01"
+ARCHIVE_CSV = DATA_DIR / "archive_retail_brand.csv"   # per-brand archive 2018 (EPPO 'Generate' data)
+
+# History starts on 1 Jan 2018 (= 1 ม.ค. 2561)
+HISTORY_START = "2018-01-01"
 
 # ---------------------------------------------------------------- time
 TZ_BKK = timezone(timedelta(hours=7), name="Asia/Bangkok")  # Thailand has no DST
@@ -43,7 +45,12 @@ ALLOWED_HOSTS = {"www.eppo.go.th", "eppo.go.th"}
 EPPO_BASE = "https://www.eppo.go.th"
 OIL_PRICE_API = EPPO_BASE + "/wp-json/oil-api/v1/oil-prices"
 MEDIA_API = EPPO_BASE + "/wp-json/wp/v2/media"
-STRUCTURE_SEARCH = "pt-price-st"  # daily file name: pt-price-st-YYYY-M-D.xlsx
+STRUCTURE_SEARCH = "pt-price-st"  # daily file name: pt-price-st-YYYY-M-D.xlsx (.xls before ~2025)
+POSTS_API = EPPO_BASE + "/wp-json/wp/v2/posts"
+# Per-brand retail price archive = the data behind the 'Generate' / download icons on
+# 'ราคาขายปลีกน้ำมัน'. One post per price change with an .xls attachment (retail-YYYY-MM-DD.xls).
+# EPPO stopped this series on 10 Jul 2018 (857 files, Aug 2004 - Jul 2018).
+ARCHIVE_CATEGORY = 455
 
 # Honest, identifiable User-Agent (public data, 1-2 requests/day)
 USER_AGENT = "Mozilla/5.0 (compatible; eppo-oil-price-bot/1.0; public data, 1-2 requests per day)"
@@ -93,6 +100,7 @@ PRODUCTS: dict[str, dict] = {
 
 # Row labels in the structure Excel -> product code (normalised: upper, single spaces)
 STRUCTURE_PRODUCT_MAP: dict[str, str] = {
+    "ULG": "gl95",            # label used until 2023
     "ULG95": "gl95",
     "ULG 95": "gl95",
     "GASOHOL95 E10": "gh95",
@@ -108,6 +116,8 @@ STRUCTURE_PRODUCT_MAP: dict[str, str] = {
     "H-DIESEL B20": "dsb20",
     "H-DIESEL 20": "dsb20",       # label typo seen in EPPO files (Feb 2026)
     "H-DIESEL B10": "dsb10",
+    "LPG": "lpg",
+    "LPG (UNIT:BAHT/KILO)": "lpg",
     "LPG (BAHT/KILOGRAM)": "lpg",
     "LPG (BAHT/KILOGRAM )": "lpg",
     "FO 600 (1) 2%S": "fo600",
@@ -154,5 +164,7 @@ BRAND_COLUMNS = [
     "snapshot_date", "brand_code", "brand_name_th", "product_code", "product_name_th",
     "price", "effective_date", "effective_time", "source", "fetched_at",
 ]
+ARCHIVE_COLUMNS = ["announce_date", "brand_code", "product_code", "price", "effective_date",
+                   "effective_time", "source_file"]
 STRUCTURE_COLUMNS = ["date", "product_code", "product_label", *STRUCTURE_FIELDS,
                      "fx_thb_usd", "source_file"]

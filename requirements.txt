@@ -1,4 +1,4 @@
-# Only ONE third-party package (+ its dependency) -> tiny supply-chain surface.
+# Only TWO small third-party packages (+ 1 dependency) -> tiny supply-chain surface.
 # Networking uses Python's standard library. Hashes are verified by:
 #   pip install --require-hashes -r requirements.txt
 # Dependabot opens a PR when a newer version is released (see .github/dependabot.yml).
@@ -6,3 +6,7 @@ openpyxl==3.1.5 \
     --hash=sha256:5282c12b107bffeef825f4617dc029afaf41d0ea60823bbb665ef3079dc79de2
 et-xmlfile==2.0.0 \
     --hash=sha256:7a91720bc756843502c3b7504c77b8fe44217c85c537d85037f0f536151b2caa
+# xlrd reads EPPO's old Excel 97-2003 (.xls) files: structure files before 2025 and the
+# per-brand archive (retail-YYYY-MM-DD.xls). Pure Python, no dependencies.
+xlrd==2.0.2 \
+    --hash=sha256:ea762c3d29f4cca48d82df517b6d89fbce4db3107f9d78713e48cd321d5c9aa9

@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "2.0.0"
+VERSION = "2.1.0"
 SKIP_DIRS = {"_site", "__pycache__", ".git", "dist", ".venv", "venv"}
 SKIP_SUFFIX = {".pyc", ".pdf", ".sqlite", ".tmp"}
 
