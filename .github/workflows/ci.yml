@@ -1,0 +1,34 @@
+# Runs the offline tests + a local build for every push / pull request (no network to EPPO).
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["data/**", "reports/**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: ${{ vars.EGRESS_POLICY || 'block' }}
+          allowed-endpoints: >
+            github.com:443
+            api.github.com:443
+            pypi.org:443
+            files.pythonhosted.org:443
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --disable-pip-version-check --require-hashes -r requirements.txt
+      - run: python -m unittest discover -s tests -v
+      - run: python scripts/build_outputs.py

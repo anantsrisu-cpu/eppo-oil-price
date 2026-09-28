@@ -1,0 +1,163 @@
+# Daily EPPO retail oil price pipeline
+#  - 10:05 Bangkok: fetch per-brand prices + new structure files, rebuild reports, commit, deploy dashboard
+#  - 11:35 Bangkok: automatic retry (does nothing harmful if the first run already succeeded)
+#  - Manual: Actions > "Daily oil price update" > Run workflow  (mode: daily | backfill | rebuild)
+name: Daily oil price update
+
+on:
+  schedule:
+    - cron: "5 3 * * *"     # 03:05 UTC = 10:05 Asia/Bangkok  (GitHub may start a few minutes late)
+    - cron: "35 4 * * *"    # 04:35 UTC = 11:35 Asia/Bangkok  (retry / catch late EPPO uploads)
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "daily = ดึงราคาวันนี้ | backfill = ดึงย้อนหลังจากไฟล์โครงสร้างราคา | rebuild = สร้างรายงานใหม่"
+        type: choice
+        options: [daily, backfill, rebuild]
+        default: daily
+      backfill_start:
+        description: "วันที่เริ่ม backfill (YYYY-MM-DD)"
+        type: string
+        default: "2025-01-01"
+
+# Least privilege: nothing by default, each job asks only for what it needs
+permissions: {}
+
+concurrency:
+  group: oil-price-data
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  update:
+    name: Fetch EPPO data & build
+    # Set repository variable RUNNER_LABEL=self-hosted to run on your own PC if EPPO blocks GitHub IPs
+    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
+    timeout-minutes: 45
+    permissions:
+      contents: write          # commit data/ and reports/
+    outputs:
+      fetch: ${{ steps.fetch.outcome }}
+    steps:
+      - name: Harden runner - block every outbound connection except the allow-list
+        if: ${{ !vars.RUNNER_LABEL }}
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: ${{ vars.EGRESS_POLICY || 'block' }}
+          disable-sudo: true
+          allowed-endpoints: >
+            www.eppo.go.th:443
+            eppo.go.th:443
+            github.com:443
+            api.github.com:443
+            codeload.github.com:443
+            objects.githubusercontent.com:443
+            release-assets.githubusercontent.com:443
+            pypi.org:443
+            files.pythonhosted.org:443
+            results-receiver.actions.githubusercontent.com:443
+            *.blob.core.windows.net:443
+            *.actions.githubusercontent.com:443
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies (hash-pinned)
+        run: python -m pip install --disable-pip-version-check --require-hashes -r requirements.txt
+
+      - name: Unit tests (offline)
+        run: python -m unittest discover -s tests
+
+      - name: Fetch & build
+        id: fetch
+        # keep going when EPPO is unreachable, so the dashboard is still published;
+        # the "Check fetch result" job below then marks the run as failed and GitHub e-mails you
+        continue-on-error: true
+        env:
+          MODE: ${{ inputs.mode || 'daily' }}
+          START: ${{ inputs.backfill_start || '2025-01-01' }}
+        run: |
+          set -euo pipefail
+          case "$MODE" in
+            backfill)
+              [[ "$START" =~ ^20[0-9]{2}-[01][0-9]-[0-3][0-9]$ ]] || { echo "bad date: $START"; exit 1; }
+              BF=0; python scripts/backfill_structure.py --start "$START" || BF=1
+              python scripts/fetch_daily.py --skip-structure
+              exit $BF ;;
+            rebuild)
+              python scripts/build_outputs.py ;;
+            *)
+              python scripts/fetch_daily.py ;;
+          esac
+
+      - name: Build dashboard even if fetching failed
+        if: steps.fetch.outcome != 'success'
+        run: python scripts/build_outputs.py
+
+      - name: Commit data (only if something changed)
+        run: |
+          set -euo pipefail
+          git config user.name  "oil-price-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data reports
+          if git diff --cached --quiet; then
+            echo "No data changes."
+          else
+            git commit -m "data: EPPO oil prices $(TZ=Asia/Bangkok date +%F) [${{ github.run_id }}]"
+            for i in 1 2 3; do git pull --rebase --quiet && git push && break || sleep 10; done
+          fi
+
+      - name: Upload dashboard for GitHub Pages
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: _site
+
+      - name: Save log on failure
+        if: failure()
+        run: tail -n 20 data/run_log.csv || true
+
+  deploy:
+    name: Deploy dashboard
+    needs: update
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write             # deploy to GitHub Pages
+      id-token: write          # OIDC token required by deploy-pages (no stored secrets)
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+
+  check:
+    name: Check fetch result
+    needs: [update, deploy]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Fail the run if EPPO data could not be fetched
+        env:
+          FETCH: ${{ needs.update.outputs.fetch }}
+          UPDATE: ${{ needs.update.result }}
+          DEPLOY: ${{ needs.deploy.result }}
+        run: |
+          echo "fetch=$FETCH update=$UPDATE deploy=$DEPLOY"
+          if [ "$FETCH" != "success" ]; then
+            echo "::error title=ดึงข้อมูลจาก สนพ. ไม่สำเร็จ::Dashboard ยังเผยแพร่ด้วยข้อมูลเดิม — ดูคู่มือหัวข้อแก้ปัญหา (Fetch & build)"
+            exit 1
+          fi
+          if [ "$UPDATE" != "success" ] || [ "$DEPLOY" != "success" ]; then exit 1; fi

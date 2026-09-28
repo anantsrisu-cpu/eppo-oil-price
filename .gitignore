@@ -1,0 +1,11 @@
+# build output (re-created every run and deployed to GitHub Pages)
+_site/
+*.tmp
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+.DS_Store
+Thumbs.db
+~$*.xlsx

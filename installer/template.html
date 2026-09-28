@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- This page talks ONLY to api.github.com. The token you paste stays in this browser tab's memory and is never saved. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src https://api.github.com; img-src data:; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<title>ติดตั้งระบบราคาน้ำมัน EPPO</title>
+<style>
+:root {
+  --page: #f4f6f9; --surface: #ffffff; --ink: #111827; --ink-2: #4b5563; --muted: #8a8f98; --line: #e3e6eb;
+  --accent: #1f6feb; --accent-ink: #ffffff; --accent-soft: #e8f0fd; --good: #137333; --good-soft: #e6f4ea;
+  --warn: #8a5a00; --warn-soft: #fff4d6; --bad: #b3261e; --bad-soft: #fdecea; --code: #f1f3f6;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --page: #0f1115; --surface: #171a20; --ink: #f2f4f7; --ink-2: #c3c8d0; --muted: #8a8f98; --line: #2a2f37;
+    --accent: #4c8ff5; --accent-ink: #0b1220; --accent-soft: #19253a; --good: #4cc27a; --good-soft: #13261b;
+    --warn: #f0b64a; --warn-soft: #2b2312; --bad: #f28b82; --bad-soft: #2c1714; --code: #20242c; color-scheme: dark; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink); font: 15px/1.6 "Leelawadee UI", "Noto Sans Thai", "Segoe UI", system-ui, -apple-system, sans-serif; }
+.wrap { max-width: 980px; margin: 0 auto; padding: 28px 16px 60px; }
+header.top { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; }
+.logo { width: 44px; height: 44px; border-radius: 12px; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; font-weight: 700; font-size: 20px; flex: none; }
+h1 { font-size: 22px; margin: 0; line-height: 1.3; }
+.sub { color: var(--ink-2); margin: 2px 0 0; font-size: 14px; }
+.steps { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin: 18px 0 20px; padding: 0; counter-reset: s; }
+.steps li { list-style: none; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; font-size: 13px; color: var(--muted); display: flex; gap: 8px; align-items: center; }
+.steps li::before { counter-increment: s; content: counter(s); width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; background: var(--code); color: var(--ink-2); flex: none; }
+.steps li.on { color: var(--ink); border-color: var(--accent); }
+.steps li.on::before { background: var(--accent); color: var(--accent-ink); }
+.steps li.done { color: var(--good); }
+.steps li.done::before { content: "✓"; background: var(--good); color: #fff; }
+@media (max-width: 720px) { .steps { grid-template-columns: 1fr 1fr; } }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 22px; margin-bottom: 16px; }
+.card h2 { font-size: 18px; margin: 0 0 6px; }
+.card p { margin: 6px 0; }
+.muted { color: var(--ink-2); }
+.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+button, .btn { font: inherit; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 10px; padding: 10px 16px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; }
+button.primary, .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+button.big { padding: 13px 22px; font-size: 16px; }
+button:disabled { opacity: .5; cursor: not-allowed; }
+button:focus-visible, .btn:focus-visible, input:focus-visible { outline: 3px solid var(--accent-soft); outline-offset: 1px; border-color: var(--accent); }
+label.f { display: block; font-weight: 600; margin: 14px 0 6px; }
+input[type=text], input[type=password] { font: inherit; width: 100%; padding: 11px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--page); color: var(--ink); }
+.hint { font-size: 13px; color: var(--ink-2); }
+.note { border-radius: 10px; padding: 12px 14px; margin: 12px 0; font-size: 14px; }
+.note > b:first-child { display: block; margin-bottom: 2px; }
+.note.warn { background: var(--warn-soft); color: var(--ink); border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent); }
+.note.warn > b:first-child { color: var(--warn); }
+.note.bad { background: var(--bad-soft); border: 1px solid color-mix(in srgb, var(--bad) 35%, transparent); }
+.note.bad > b:first-child { color: var(--bad); }
+.note.ok { background: var(--good-soft); border: 1px solid color-mix(in srgb, var(--good) 35%, transparent); }
+.note.ok > b:first-child { color: var(--good); }
+.note.info { background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); }
+ol.how { margin: 8px 0; padding-left: 22px; }
+ol.how li { margin: 6px 0; }
+code { background: var(--code); border-radius: 5px; padding: 1px 6px; font-family: ui-monospace, Consolas, monospace; font-size: 13px; }
+.checks { display: grid; gap: 8px; margin: 10px 0; }
+.checks label { display: flex; gap: 10px; align-items: flex-start; background: var(--page); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; cursor: pointer; }
+.checks input { margin-top: 5px; width: 18px; height: 18px; flex: none; }
+.tasks { list-style: none; padding: 0; margin: 10px 0; display: grid; gap: 6px; }
+.tasks li { display: grid; grid-template-columns: 28px 1fr auto; gap: 10px; align-items: start; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--page); }
+.tasks .ic { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 700; background: var(--code); color: var(--muted); }
+.tasks li.run .ic { background: var(--accent); color: var(--accent-ink); animation: pulse 1.2s ease-in-out infinite; }
+.tasks li.ok .ic { background: var(--good); color: #fff; }
+.tasks li.warn .ic { background: var(--warn); color: #fff; }
+.tasks li.fail .ic { background: var(--bad); color: #fff; }
+.tasks .t { font-weight: 600; }
+.tasks .d { font-size: 13px; color: var(--ink-2); }
+.tasks .tm { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+@keyframes pulse { 50% { opacity: .55; } }
+@media (prefers-reduced-motion: reduce) { .tasks li.run .ic { animation: none; } }
+.bar { height: 8px; border-radius: 99px; background: var(--code); overflow: hidden; margin: 10px 0 4px; }
+.bar i { display: block; height: 100%; width: 0; background: var(--accent); }
+.done-box { text-align: center; padding: 10px 0; }
+.done-box .url { font-family: ui-monospace, Consolas, monospace; background: var(--code); padding: 8px 12px; border-radius: 8px; display: inline-block; margin: 8px 0; word-break: break-all; }
+.tabs { display: flex; gap: 6px; margin-bottom: 14px; }
+.tabs button[aria-selected=true] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.runs { width: 100%; border-collapse: collapse; font-size: 14px; }
+.runs th, .runs td { text-align: left; padding: 8px; border-bottom: 1px solid var(--line); }
+footer { color: var(--muted); font-size: 12px; text-align: center; margin-top: 26px; }
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="logo">⛽</div>
+    <div>
+      <h1>ติดตั้งระบบราคาน้ำมัน EPPO ขึ้น GitHub</h1>
+      <p class="sub">ติดตั้งให้อัตโนมัติทั้งหมด — ไม่ต้องอัปโหลดไฟล์หรือตั้งค่าเอง · เวอร์ชัน __VERSION__</p>
+    </div>
+  </header>
+
+  <div class="tabs" role="tablist">
+    <button type="button" role="tab" id="tab-install" aria-selected="true">ติดตั้งครั้งแรก</button>
+    <button type="button" role="tab" id="tab-manage" aria-selected="false">แผงควบคุม (หลังติดตั้ง)</button>
+  </div>
+
+  <!-- ===================================================== INSTALL -->
+  <div id="view-install">
+  <ol class="steps" id="stepper">
+    <li data-s="1">เตรียมตัว</li><li data-s="2">สร้างรหัส Token</li><li data-s="3">ตั้งชื่อระบบ</li><li data-s="4">ติดตั้ง</li><li data-s="5">เสร็จ</li>
+  </ol>
+
+  <section class="card" data-page="1">
+    <h2>1. เตรียมตัว (2 นาที)</h2>
+    <p class="muted">หน้านี้จะสร้างที่เก็บข้อมูล (repository) บน GitHub, ใส่โปรแกรม, ตั้งค่าความปลอดภัย, เปิดเว็บ Dashboard และสั่งดึงข้อมูลครั้งแรกให้ทั้งหมด</p>
+    <div class="checks">
+      <label><input type="checkbox" class="pre"> <span><b>มีบัญชี GitHub และล็อกอินอยู่ในเบราว์เซอร์นี้แล้ว</b><br><span class="hint">ยังไม่มี: สมัครฟรีที่ github.com/signup</span></span></label>
+      <label><input type="checkbox" class="pre"> <span><b>เปิดยืนยันตัวตน 2 ชั้น (2FA) แล้ว</b><br><span class="hint">github.com → รูปโปรไฟล์ → Settings → Password and authentication → Enable two-factor authentication</span></span></label>
+      <label><input type="checkbox" class="pre"> <span><b>เปิดหน้านี้ด้วย Google Chrome หรือ Microsoft Edge</b><br><span class="hint">และมีอินเทอร์เน็ต · ห้ามปิดหน้านี้ระหว่างติดตั้ง (ประมาณ 15 นาที)</span></span></label>
+    </div>
+    <div class="note warn"><b>⚠ ถ้าข้ามข้อนี้จะเกิดปัญหา</b>ถ้าไม่ได้ล็อกอิน GitHub ไว้ ลิงก์สร้าง Token ในขั้นต่อไปจะพาไปหน้าล็อกอินแทน และถ้าไม่มี 2FA บางองค์กรจะไม่ยอมให้สร้าง Token</div>
+    <div class="row"><button class="primary big" id="go2" type="button" disabled>ถัดไป →</button></div>
+  </section>
+
+  <section class="card" data-page="2" hidden>
+    <h2>2. สร้างรหัส Token (กุญแจชั่วคราวให้หน้านี้ติดตั้งแทนคุณ)</h2>
+    <ol class="how">
+      <li>กดปุ่มสีน้ำเงินด้านล่าง → GitHub จะเปิดหน้า <b>New personal access token (classic)</b> ในแท็บใหม่ โดยกรอกไว้ให้แล้ว</li>
+      <li>ช่อง <b>Expiration</b> เลือก <b>7 days</b></li>
+      <li>ตรวจว่ามีเครื่องหมายถูกที่ <code>repo</code> และ <code>workflow</code> (ติ๊กไว้ให้แล้ว — <b>ห้ามเอาออก</b>)</li>
+      <li>เลื่อนลงล่างสุด กด <b>Generate token</b> (สีเขียว)</li>
+      <li>กดปุ่มคัดลอก 📋 ข้างรหัสที่ขึ้นต้นด้วย <code>ghp_</code> แล้วกลับมาวางในช่องด้านล่าง</li>
+    </ol>
+    <div class="row"><a class="btn primary" id="tokLink" href="https://github.com/settings/tokens/new?scopes=repo,workflow&amp;description=EPPO-oil-price-installer" target="_blank" rel="noopener noreferrer">🔑 เปิดหน้าสร้าง Token บน GitHub</a></div>
+    <div class="note warn"><b>⚠ จุดที่ถ้าไม่ทำ ระบบจะติดตั้งไม่ผ่าน</b>
+      ถ้าไม่ได้ติ๊ก <code>workflow</code> ขั้น "อัปโหลดโปรแกรม" จะล้มเหลว (GitHub ไม่ยอมให้วางไฟล์ตั้งเวลาอัตโนมัติ) · รหัส Token จะแสดง<b>ครั้งเดียว</b> ถ้าปิดหน้าไปก่อนคัดลอกต้องสร้างใหม่</div>
+    <label class="f" for="token">วางรหัส Token ที่นี่</label>
+    <input type="password" id="token" autocomplete="off" spellcheck="false" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
+    <p class="hint">🔒 รหัสนี้อยู่ในหน้านี้เท่านั้น ไม่ถูกบันทึกที่ไหน และส่งไปที่ api.github.com เท่านั้น · หลังติดตั้งเสร็จให้ลบทิ้ง (มีปุ่มพาไปลบในขั้นสุดท้าย)</p>
+    <div id="tokMsg"></div>
+    <div class="row"><button type="button" id="back1">← ย้อนกลับ</button><button class="primary big" id="checkTok" type="button">ตรวจรหัส แล้วไปต่อ →</button></div>
+  </section>
+
+  <section class="card" data-page="3" hidden>
+    <h2>3. ตั้งชื่อระบบ</h2>
+    <p>บัญชี GitHub: <b id="who">—</b></p>
+    <label class="f" for="repo">ชื่อที่เก็บข้อมูล (repository) — ใช้ภาษาอังกฤษ ตัวเลข หรือขีด <code>-</code> เท่านั้น</label>
+    <input type="text" id="repo" value="eppo-oil-price" autocomplete="off" spellcheck="false">
+    <p class="hint">ลิงก์ Dashboard จะเป็น <code id="urlPreview">https://…github.io/eppo-oil-price/</code></p>
+    <div id="repoMsg"></div>
+    <div class="note info"><b>ℹ ทำไมต้องเป็นแบบสาธารณะ (Public)</b>GitHub เปิดเว็บ Dashboard ให้ฟรีเฉพาะที่เก็บแบบ Public · ข้อมูลราคาน้ำมันเป็นข้อมูลสาธารณะของรัฐ และระบบนี้ไม่มีรหัสผ่านใด ๆ อยู่ข้างใน · <b>ห้ามนำไฟล์ภายในบริษัทไปใส่ในที่เก็บนี้</b></div>
+    <div class="row"><button type="button" id="back2">← ย้อนกลับ</button><button class="primary big" id="startInstall" type="button">🚀 เริ่มติดตั้ง</button></div>
+  </section>
+
+  <section class="card" data-page="4" hidden>
+    <h2>4. กำลังติดตั้ง… ห้ามปิดหน้านี้</h2>
+    <div class="bar"><i id="prog"></i></div><p class="hint" id="progTxt">0%</p>
+    <ul class="tasks" id="tasks"></ul>
+    <div id="installMsg"></div>
+    <div class="row" id="failActions" hidden>
+      <button type="button" id="retryInstall" class="primary">ลองอีกครั้งจากขั้นที่ล้มเหลว</button>
+      <button type="button" id="newToken">ใส่ Token ใหม่ แล้วทำต่อ</button>
+      <a class="btn" id="logLink" href="#" target="_blank" rel="noopener noreferrer" hidden>เปิดหน้า Log บน GitHub</a>
+    </div>
+  </section>
+
+  <section class="card" data-page="5" hidden>
+    <div class="done-box">
+      <div style="font-size:44px">🎉</div>
+      <h2>ติดตั้งเสร็จแล้ว</h2>
+      <p class="muted">ระบบจะดึงราคาเองทุกวันเวลาประมาณ 10:05 น. (และรอบสำรอง 11:35 น.) โดยไม่ต้องเปิดคอมพิวเตอร์</p>
+      <div class="url" id="siteUrl">—</div>
+      <div class="row" style="justify-content:center;margin-top:8px"><a class="btn primary big" id="openSite" href="#" target="_blank" rel="noopener noreferrer">📊 เปิด Dashboard</a>
+        <a class="btn" id="openRepo" href="#" target="_blank" rel="noopener noreferrer">เปิดที่เก็บบน GitHub</a></div>
+      <p class="hint">ถ้าเปิดแล้วขึ้น 404 ให้รอ 1–2 นาทีแล้วกดรีเฟรช (GitHub กำลังเผยแพร่เว็บครั้งแรก)</p>
+    </div>
+    <div class="note warn"><b>⚠ ขั้นสุดท้ายที่ต้องทำ: ลบ Token</b>เพื่อความปลอดภัย กดปุ่มด้านล่าง → หา Token ชื่อ <code>EPPO-oil-price-installer</code> → กด <b>Delete</b> · (ถ้าจะใช้แผงควบคุมภายหลัง ค่อยสร้าง Token ใหม่ได้)</div>
+    <div class="row"><a class="btn" href="https://github.com/settings/tokens" target="_blank" rel="noopener noreferrer">🗑 ไปหน้าลบ Token</a></div>
+    <div class="note info"><b>ℹ บันทึกลิงก์ Dashboard ไว้</b>กด <code>Ctrl</code>+<code>D</code> ในหน้า Dashboard เพื่อบุ๊กมาร์ก หรือแชร์ลิงก์ให้เพื่อนร่วมงาน (ทุกคนเปิดดูได้ แต่แก้ข้อมูลไม่ได้)</div>
+    <div id="doneWarn"></div>
+  </section>
+  </div>
+
+  <!-- ===================================================== MANAGE -->
+  <div id="view-manage" hidden>
+    <section class="card">
+      <h2>แผงควบคุม</h2>
+      <p class="muted">ใช้เมื่ออยากสั่งดึงข้อมูลทันที ดูว่าระบบรันสำเร็จไหม หรือแก้ปัญหา — ต้องใช้ Token (สร้างแบบเดียวกับขั้นที่ 2)</p>
+      <div class="row" style="align-items:flex-end">
+        <div style="flex:2;min-width:220px"><label class="f" for="mToken">Token</label><input type="password" id="mToken" autocomplete="off" placeholder="ghp_…"></div>
+        <div style="flex:1;min-width:160px"><label class="f" for="mRepo">ชื่อ repository</label><input type="text" id="mRepo" value="eppo-oil-price" autocomplete="off"></div>
+        <button class="primary" type="button" id="mConnect">เชื่อมต่อ</button>
+      </div>
+      <div id="mMsg"></div>
+    </section>
+    <section class="card" id="mPanel" hidden>
+      <h2>สั่งงาน</h2>
+      <div class="row">
+        <button type="button" class="primary" data-act="daily">⟳ ดึงราคาวันนี้ตอนนี้</button>
+        <button type="button" data-act="backfill">⏮ ดึงย้อนหลังตั้งแต่ 1 ม.ค. 2568 ใหม่</button>
+        <button type="button" data-act="rebuild">🧱 สร้างรายงาน/Dashboard ใหม่</button>
+        <button type="button" data-act="update">⬆ อัปเดตโปรแกรมเป็นเวอร์ชันนี้ (ข้อมูลเดิมอยู่ครบ)</button>
+      </div>
+      <h2 style="margin-top:18px">แก้ปัญหา</h2>
+      <div class="row">
+        <button type="button" data-act="fix-network">🛡 โหมดแก้ปัญหาเครือข่าย (ถ้าขั้น Harden runner ล้ม)</button>
+        <button type="button" data-act="fix-network-off">🛡 กลับเป็นโหมดบล็อกเครือข่าย (ปลอดภัยสุด)</button>
+        <button type="button" data-act="fix-settings">⚙ ตั้งค่า Pages/ความปลอดภัยใหม่อีกครั้ง</button>
+      </div>
+      <div id="actMsg"></div>
+      <h2 style="margin-top:18px">การรัน 10 ครั้งล่าสุด</h2>
+      <div style="overflow-x:auto"><table class="runs"><thead><tr><th>เวลา</th><th>ประเภท</th><th>ผล</th><th></th></tr></thead><tbody id="runsBody"></tbody></table></div>
+      <div class="row" style="margin-top:10px"><button type="button" id="mRefresh">รีเฟรชสถานะ</button><a class="btn" id="mSite" href="#" target="_blank" rel="noopener noreferrer">📊 เปิด Dashboard</a></div>
+    </section>
+  </div>
+
+  <footer>หน้านี้ทำงานในเบราว์เซอร์ของคุณเท่านั้น · ติดต่อได้เฉพาะ api.github.com · ไฟล์โปรแกรม __FILECOUNT__ ไฟล์ฝังอยู่ในหน้านี้</footer>
+</div>
+
+<script>
+'use strict';
+const FILES = __FILES__;            // [{path, b64}] - the whole system, embedded
+const VERSION = '__VERSION__';
+const API = 'https://api.github.com';
+const WF = 'daily-update.yml';
+const DATA_PREFIXES = ['data/', 'reports/'];   // kept when updating an existing install
+
+const $ = (s) => document.querySelector(s);
+function el(tag, attrs, ...kids) { const e = document.createElement(tag); for (const [k, v] of Object.entries(attrs || {})) { if (v == null) continue; if (k === 'class') e.className = v; else e.setAttribute(k, v); } for (const c of kids.flat()) if (c != null) e.append(c instanceof Node ? c : document.createTextNode(String(c))); return e; }
+function msg(host, kind, title, body) { const n = typeof host === 'string' ? $(host) : host; n.replaceChildren(el('div', { class: 'note ' + kind }, el('b', {}, title), body || '')); }
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// ------------------------------------------------------------------ GitHub API
+class GhError extends Error { constructor(status, message, path) { super(message); this.status = status; this.path = path; } }
+function makeGh(token) {
+  return async function gh(method, path, body, okExtra) {
+    const r = await fetch(API + path, { method, headers: { Authorization: 'Bearer ' + token, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', ...(body ? { 'Content-Type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined, cache: 'no-store' });
+    const text = await r.text(); let json = null; try { json = text ? JSON.parse(text) : null; } catch (e) { /* not json */ }
+    if (!r.ok && !(okExtra || []).includes(r.status)) throw new GhError(r.status, (json && (json.message + (json.errors ? ' ' + JSON.stringify(json.errors) : ''))) || text || ('HTTP ' + r.status), path);
+    return { status: r.status, json, headers: r.headers };
+  };
+}
+function thaiHint(e) {
+  const m = String(e && e.message || e);
+  if (/workflow` scope|without `workflow`/i.test(m)) return 'Token ไม่ได้ติ๊กสิทธิ์ workflow → สร้าง Token ใหม่ตามขั้นที่ 2 (ต้องมีทั้ง repo และ workflow)';
+  if (e && e.status === 401) return 'รหัส Token ไม่ถูกต้อง หมดอายุ หรือถูกลบแล้ว → สร้างใหม่ในขั้นที่ 2';
+  if (e && e.status === 403 && /rate limit/i.test(m)) return 'เรียก GitHub ถี่เกินไป → รอ 5–10 นาทีแล้วกด "ลองอีกครั้ง"';
+  if (e && e.status === 403) return 'Token ไม่มีสิทธิ์พอ (ต้องติ๊ก repo และ workflow) หรือองค์กรของคุณปิดการใช้ Token → สร้าง Token ใหม่ หรือติดต่อผู้ดูแล GitHub ขององค์กร';
+  if (/plan does not support|Pages.*not.*available/i.test(m)) return 'บัญชี GitHub ฟรีเปิด Pages ได้เฉพาะ repository แบบ Public → ตรวจว่า repository เป็น Public';
+  if (/name already exists/i.test(m)) return 'มี repository ชื่อนี้อยู่แล้ว → เปลี่ยนชื่อ หรือเลือก "ติดตั้งทับ"';
+  if (/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'เชื่อมต่อ api.github.com ไม่ได้ → ตรวจอินเทอร์เน็ต/ไฟร์วอลล์ขององค์กร แล้วกดลองอีกครั้ง';
+  return 'ข้อความจาก GitHub: ' + m;
+}
+
+// ------------------------------------------------------------------ wizard navigation
+let page = 1; let gh = null; let login = null; let tokenScopes = '';
+function go(n) {
+  page = n;
+  document.querySelectorAll('[data-page]').forEach((s) => { s.hidden = +s.dataset.page !== n; });
+  document.querySelectorAll('#stepper li').forEach((li) => { const s = +li.dataset.s; li.className = s < n ? 'done' : s === n ? 'on' : ''; });
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+document.querySelectorAll('.pre').forEach((c) => c.addEventListener('change', () => { $('#go2').disabled = ![...document.querySelectorAll('.pre')].every((x) => x.checked); }));
+$('#go2').onclick = () => go(2); $('#back1').onclick = () => go(1); $('#back2').onclick = () => go(2);
+$('#repo').addEventListener('input', () => { $('#urlPreview').textContent = `https://${(login || '…').toLowerCase()}.github.io/${$('#repo').value.trim()}/`; });
+
+$('#checkTok').onclick = async () => {
+  const t = $('#token').value.trim();
+  if (!/^(ghp_|github_pat_)[A-Za-z0-9_]{20,}$/.test(t)) { msg('#tokMsg', 'bad', '✗ รูปแบบรหัสไม่ถูกต้อง', 'รหัสต้องขึ้นต้นด้วย ghp_ (หรือ github_pat_) — คัดลอกให้ครบทั้งบรรทัด ไม่มีช่องว่าง'); return; }
+  $('#checkTok').disabled = true; msg('#tokMsg', 'info', 'กำลังตรวจรหัส…');
+  try {
+    gh = makeGh(t);
+    const r = await gh('GET', '/user');
+    login = r.json.login; tokenScopes = r.headers.get('x-oauth-scopes');
+    if (t.startsWith('ghp_') && tokenScopes != null) {
+      const sc = tokenScopes.split(',').map((x) => x.trim());
+      const miss = ['repo', 'workflow'].filter((x) => !sc.includes(x));
+      if (miss.length) { msg('#tokMsg', 'bad', '✗ Token ขาดสิทธิ์: ' + miss.join(', '), 'สร้าง Token ใหม่ด้วยปุ่มสีน้ำเงินด้านบน และอย่าเอาเครื่องหมายถูกที่ repo และ workflow ออก'); return; }
+    }
+    $('#who').textContent = login; $('#repo').dispatchEvent(new Event('input'));
+    msg('#tokMsg', 'ok', '✓ รหัสถูกต้อง', `เชื่อมกับบัญชี ${login} แล้ว`);
+    await sleep(500); go(3);
+  } catch (e) { msg('#tokMsg', 'bad', '✗ ตรวจรหัสไม่ผ่าน', thaiHint(e)); }
+  finally { $('#checkTok').disabled = false; }
+};
+
+// ------------------------------------------------------------------ install tasks
+const TASKS = [
+  ['repo', 'สร้างที่เก็บข้อมูล (repository)', 'Public · ชื่อตามที่ตั้งไว้'],
+  ['upload', 'อัปโหลดโปรแกรมและข้อมูลตั้งต้น', `${FILES.length} ไฟล์ ในครั้งเดียว (ไม่มีปัญหาโฟลเดอร์ซ้อน)`],
+  ['actions', 'ตั้งค่าความปลอดภัยของตัวรันอัตโนมัติ', 'อนุญาตเฉพาะ Action ของ GitHub + ตัวบล็อกเครือข่าย · สิทธิ์เริ่มต้นแบบอ่านอย่างเดียว'],
+  ['pages', 'เปิดเว็บ Dashboard (GitHub Pages)', 'Source = GitHub Actions'],
+  ['security', 'เปิดการป้องกันเพิ่มเติม', 'ห้ามลบ/เขียนทับประวัติ branch main · สแกนรหัสลับ · แจ้งเตือนช่องโหว่'],
+  ['register', 'รอ GitHub รู้จักตัวรันอัตโนมัติ', 'ปกติไม่เกิน 1 นาที'],
+  ['dispatch', 'สั่งดึงข้อมูลครั้งแรก (ย้อนหลังตั้งแต่ 1 ม.ค. 2568)', ''],
+  ['run', 'รอดึงข้อมูลและสร้าง Dashboard', 'ประมาณ 10–15 นาที · แสดงขั้นตอนย่อยตามจริง'],
+];
+const state = { done: new Set(), owner: null, repo: null, mode: 'install', runId: null, dispatchedAt: null, pagesUrl: null };
+function renderTasks(cur, curState, detail) {
+  const ul = $('#tasks'); ul.replaceChildren();
+  TASKS.forEach(([id, t, d], i) => {
+    let cls = state.done.has(id) ? 'ok' : id === cur ? curState : '';
+    const ic = cls === 'ok' ? '✓' : cls === 'fail' ? '!' : cls === 'warn' ? '!' : String(i + 1);
+    ul.append(el('li', { class: cls }, el('span', { class: 'ic' }, ic), el('div', {}, el('div', { class: 't' }, t), el('div', { class: 'd' }, id === cur && detail ? detail : d)), el('span', { class: 'tm' }, '')));
+  });
+  const pct = Math.round((state.done.size / TASKS.length) * 100);
+  $('#prog').style.width = pct + '%'; $('#progTxt').textContent = pct + '%';
+}
+async function step(id, fn) {
+  if (state.done.has(id)) return;
+  renderTasks(id, 'run');
+  const res = await fn((detail) => renderTasks(id, 'run', detail));
+  state.done.add(id); renderTasks(null);
+  return res;
+}
+
+async function uploadFiles(owner, repo, onlyCode, report) {
+  const r = await gh('GET', `/repos/${owner}/${repo}`);
+  const branch = 'main';
+  let head = null; let baseTree = null;
+  const ref = await gh('GET', `/repos/${owner}/${repo}/git/ref/heads/${r.json.default_branch}`, null, [404, 409]);
+  if (ref.status === 200) { head = ref.json.object.sha; const c = await gh('GET', `/repos/${owner}/${repo}/git/commits/${head}`); baseTree = c.json.tree.sha; }
+  else {   // completely empty repository: create a first commit through the contents API
+    await gh('PUT', `/repos/${owner}/${repo}/contents/.installer-init`, { message: 'init', content: btoa('init'), branch });
+    return uploadFiles(owner, repo, onlyCode, report);
+  }
+  const files = onlyCode ? FILES.filter((f) => !DATA_PREFIXES.some((p) => f.path.startsWith(p))) : FILES;
+  const tree = []; let n = 0;
+  const queue = files.slice(); const workers = [];
+  for (let w = 0; w < 4; w++) workers.push((async () => {
+    while (queue.length) {
+      const f = queue.shift();
+      const b = await gh('POST', `/repos/${owner}/${repo}/git/blobs`, { content: f.b64, encoding: 'base64' });
+      tree.push({ path: f.path, mode: '100644', type: 'blob', sha: b.json.sha });
+      n++; report(`อัปโหลดแล้ว ${n}/${files.length} ไฟล์`);
+    }
+  })());
+  await Promise.all(workers);
+  // install = exact copy of the system (removes wrongly nested folders from earlier manual uploads);
+  // update = new program files on top of the current tree (collected data kept)
+  const t = await gh('POST', `/repos/${owner}/${repo}/git/trees`, onlyCode ? { base_tree: baseTree, tree } : { tree });
+  const c = await gh('POST', `/repos/${owner}/${repo}/git/commits`, { message: (onlyCode ? 'Update program ' : 'Install EPPO oil price system ') + VERSION, tree: t.json.sha, parents: head ? [head] : [] });
+  const has = await gh('GET', `/repos/${owner}/${repo}/git/ref/heads/${branch}`, null, [404]);
+  if (has.status === 404) await gh('POST', `/repos/${owner}/${repo}/git/refs`, { ref: 'refs/heads/' + branch, sha: c.json.sha });
+  else await gh('PATCH', `/repos/${owner}/${repo}/git/refs/heads/${branch}`, { sha: c.json.sha, force: true });
+  if (r.json.default_branch !== branch) await gh('PATCH', `/repos/${owner}/${repo}`, { default_branch: branch });
+}
+async function applySettings(owner, repo, warn) {
+  const P = `/repos/${owner}/${repo}`;
+  await gh('PUT', P + '/actions/permissions', { enabled: true, allowed_actions: 'selected' });
+  await gh('PUT', P + '/actions/permissions/selected-actions', { github_owned_allowed: true, verified_allowed: false, patterns_allowed: ['step-security/harden-runner@*'] });
+  await gh('PUT', P + '/actions/permissions/workflow', { default_workflow_permissions: 'read', can_approve_pull_request_reviews: false });
+  try { await gh('PUT', P + '/actions/permissions/fork-pr-contributor-approval', { approval_policy: 'all_external_contributors' }); } catch (e) { /* optional, older API */ }
+  void warn;
+}
+async function enablePages(owner, repo) {
+  const P = `/repos/${owner}/${repo}/pages`;
+  const r = await gh('POST', P, { build_type: 'workflow' }, [409]);
+  if (r.status === 409) await gh('PUT', P, { build_type: 'workflow' });
+}
+async function extraSecurity(owner, repo, warn) {
+  const P = `/repos/${owner}/${repo}`;
+  try {
+    const list = await gh('GET', P + '/rulesets');
+    if (!(list.json || []).some((x) => x.name === 'protect-main')) {
+      await gh('POST', P + '/rulesets', { name: 'protect-main', target: 'branch', enforcement: 'active', conditions: { ref_name: { include: ['~DEFAULT_BRANCH'], exclude: [] } }, rules: [{ type: 'deletion' }, { type: 'non_fast_forward' }] });
+    }
+  } catch (e) { warn('ตั้งกฎป้องกัน branch ไม่สำเร็จ (' + e.status + ') — ระบบยังทำงานได้ ตั้งเองภายหลังได้ตามคู่มือ'); }
+  try { await gh('PATCH', P, { security_and_analysis: { secret_scanning: { status: 'enabled' }, secret_scanning_push_protection: { status: 'enabled' } } }); }
+  catch (e) { warn('เปิดสแกนรหัสลับไม่สำเร็จ — ไม่กระทบการทำงาน'); }
+  try { await gh('PUT', P + '/vulnerability-alerts'); } catch (e) { /* optional */ }
+}
+async function waitWorkflow(owner, repo, report) {
+  for (let i = 0; i < 30; i++) {
+    const r = await gh('GET', `/repos/${owner}/${repo}/actions/workflows`);
+    const w = (r.json.workflows || []).find((x) => x.path === '.github/workflows/' + WF);
+    if (w && w.state === 'active') return w;
+    if (w && w.state !== 'active') await gh('PUT', `/repos/${owner}/${repo}/actions/workflows/${WF}/enable`, null, [204]);
+    report(`รอ… (${(i + 1) * 5} วินาที)`); await sleep(5000);
+  }
+  throw new GhError(0, 'GitHub ยังไม่พบไฟล์ .github/workflows/' + WF + ' — ตรวจว่าเปิดใช้ Actions ในบัญชี/องค์กรแล้ว');
+}
+async function dispatch(owner, repo, mode, start) {
+  const inputs = { mode }; if (start) inputs.backfill_start = start;
+  for (let i = 0; i < 6; i++) {
+    const r = await gh('POST', `/repos/${owner}/${repo}/actions/workflows/${WF}/dispatches`, { ref: 'main', inputs }, [404, 422]);
+    if (r.status === 204) return new Date(Date.now() - 60000).toISOString();
+    await sleep(5000);
+  }
+  throw new GhError(422, 'สั่งรันไม่สำเร็จ (workflow_dispatch)');
+}
+const STEP_TH = { 'Harden runner - block every outbound connection except the allow-list': 'เปิดตัวบล็อกเครือข่าย', 'Checkout': 'ดึงโปรแกรม', 'Set up Python': 'เตรียม Python', 'Install dependencies (hash-pinned)': 'ติดตั้งแพ็กเกจ (ตรวจ hash)', 'Unit tests (offline)': 'ทดสอบโปรแกรม', 'Fetch & build': 'ดึงข้อมูลจาก สนพ. + สร้างรายงาน', 'Commit data (only if something changed)': 'บันทึกข้อมูลลง GitHub', 'Upload dashboard for GitHub Pages': 'เตรียมไฟล์เว็บ', 'Deploy to GitHub Pages': 'เผยแพร่ Dashboard' };
+function stepHint(name) {
+  if (/Harden/i.test(name)) return 'ตัวบล็อกเครือข่ายบล็อกสิ่งที่จำเป็น → ไปแท็บ "แผงควบคุม" กด "โหมดแก้ปัญหาเครือข่าย" แล้วสั่งดึงข้อมูลใหม่';
+  if (/Check fetch|Fail the run/i.test(name)) return 'Dashboard ออนไลน์แล้ว แต่ดึงข้อมูลจาก สนพ. ไม่สำเร็จ → รอ 30 นาทีแล้วสั่ง "ดึงราคาวันนี้ตอนนี้" ในแผงควบคุม · ถ้ายังไม่ได้ ลอง "โหมดแก้ปัญหาเครือข่าย"';
+  if (/Fetch/i.test(name)) return 'ดึงข้อมูลจากเว็บ สนพ. ไม่สำเร็จ (อาจถูกไฟร์วอลล์ของ สนพ. บล็อกชั่วคราว) → รอ 30 นาทีแล้วสั่ง "ดึงข้อมูลตอนนี้" ในแผงควบคุม · ถ้าเป็นหลายวัน ดูคู่มือหัวข้อ "รันบนเครื่องในองค์กร"';
+  if (/Deploy|Pages/i.test(name)) return 'เผยแพร่เว็บไม่สำเร็จ → แผงควบคุม กด "ตั้งค่า Pages/ความปลอดภัยใหม่อีกครั้ง" แล้วสั่ง "สร้างรายงาน/Dashboard ใหม่"';
+  if (/Install dependencies|Set up Python/i.test(name)) return 'ดาวน์โหลดแพ็กเกจไม่สำเร็จ (เครือข่ายของ GitHub) → สั่งรันใหม่อีกครั้ง';
+  if (/Commit/i.test(name)) return 'บันทึกข้อมูลไม่ได้ → ตรวจว่า Settings → Actions → General → Workflow permissions ไม่ได้ถูกองค์กรล็อกไว้';
+  return 'เปิด Log เพื่อดูรายละเอียด แล้วดูคู่มือหัวข้อ "แก้ปัญหา"';
+}
+async function watchRun(owner, repo, since, report) {
+  let run = null;
+  for (let i = 0; i < 40 && !run; i++) {
+    const r = await gh('GET', `/repos/${owner}/${repo}/actions/workflows/${WF}/runs?per_page=5&event=workflow_dispatch`);
+    run = (r.json.workflow_runs || []).find((x) => x.created_at >= since) || null;
+    if (!run) { report('รอ GitHub เริ่มงาน…'); await sleep(5000); }
+  }
+  if (!run) throw new GhError(0, 'GitHub ไม่เริ่มงานภายใน 3 นาที');
+  state.runId = run.id; $('#logLink').href = run.html_url; $('#logLink').hidden = false;
+  const t0 = Date.now();
+  for (;;) {
+    const rr = await gh('GET', `/repos/${owner}/${repo}/actions/runs/${run.id}`); run = rr.json;
+    const jobs = (await gh('GET', `/repos/${owner}/${repo}/actions/runs/${run.id}/jobs`)).json.jobs || [];
+    const steps = jobs.flatMap((j) => (j.steps || []).map((s) => ({ ...s, job: j.name })));
+    const cur = steps.find((s) => s.status === 'in_progress') || steps.filter((s) => s.status === 'completed').pop();
+    const mins = Math.floor((Date.now() - t0) / 60000);
+    report(`${cur ? (STEP_TH[cur.name] || cur.name) : 'กำลังเริ่ม'} · ผ่านไป ${mins} นาที · ${steps.filter((s) => s.conclusion === 'success').length}/${steps.length || '?'} ขั้นตอนย่อย`);
+    if (run.status === 'completed') {
+      if (run.conclusion === 'success') return run;
+      const dep = jobs.find((j) => /Deploy/i.test(j.name)); const chk = jobs.find((j) => /Check fetch/i.test(j.name));
+      const upd = jobs.find((j) => /Fetch EPPO/i.test(j.name));
+      if (dep && dep.conclusion === 'success' && upd && upd.conclusion === 'success' && chk && chk.conclusion === 'failure') {
+        run.partial = true; return run;   // dashboard is online with the bundled data; EPPO fetch failed
+      }
+      const bad = steps.find((s) => s.conclusion === 'failure') || { name: '' };
+      const e = new GhError(0, `ขั้น "${STEP_TH[bad.name] || bad.name || 'ไม่ทราบ'}" ล้มเหลว`); e.hint = stepHint(bad.name); throw e;
+    }
+    await sleep(10000);
+  }
+}
+
+async function install() {
+  const name = $('#repo').value.trim();
+  if (!/^[A-Za-z0-9._-]{1,90}$/.test(name)) { msg('#repoMsg', 'bad', '✗ ชื่อไม่ถูกต้อง', 'ใช้ได้เฉพาะ a-z, A-Z, 0-9, จุด, ขีด และขีดล่าง'); return; }
+  const resuming = state.repo === name && state.done.size > 0;   // coming back after "ใส่ Token ใหม่"
+  state.owner = login; state.repo = name;
+  const P = `/repos/${login}/${name}`;
+  const ex = await gh('GET', P, null, [404]);
+  if (ex.status === 200 && !resuming) {
+    const hasData = await gh('GET', P + '/contents/data/retail_prices_brand.csv', null, [404]);
+    state.mode = hasData.status === 200 ? 'update' : 'install';
+    const text = state.mode === 'update'
+      ? `มี repository "${name}" ที่ติดตั้งระบบนี้อยู่แล้ว → จะอัปเดตเฉพาะโปรแกรม ข้อมูลราคาที่เก็บไว้จะอยู่ครบ`
+      : `มี repository "${name}" อยู่แล้ว แต่ไฟล์ไม่ถูกต้อง (เช่น อัปโหลดซ้อนโฟลเดอร์) → จะแทนที่ไฟล์ทั้งหมดด้วยชุดที่ถูกต้อง`;
+    if (!$('#confirmExisting') || !$('#confirmExisting').checked) {
+      const box = el('div', { class: 'note warn' }, el('b', {}, '⚠ ' + text), el('label', {}, el('input', { type: 'checkbox', id: 'confirmExisting' }), ' ยืนยัน ดำเนินการต่อ'));
+      $('#repoMsg').replaceChildren(box); $('#confirmExisting').addEventListener('change', () => { if ($('#confirmExisting').checked) install(); }); return;
+    }
+    if (ex.json.private) { msg('#repoMsg', 'bad', '✗ repository นี้เป็น Private', 'GitHub ฟรีเปิดเว็บ Dashboard ได้เฉพาะแบบ Public → ไปที่ repository → Settings → General → Danger Zone → Change visibility → Public หรือเปลี่ยนชื่อใหม่'); return; }
+  }
+  go(4); await runInstall();
+}
+async function runInstall() {
+  const { owner, repo } = { owner: state.owner, repo: state.repo }; const P = `/repos/${owner}/${repo}`;
+  const warns = []; const warn = (w) => warns.push(w);
+  $('#failActions').hidden = true; $('#installMsg').replaceChildren();
+  try {
+    await step('repo', async () => {
+      const ex = await gh('GET', P, null, [404]);
+      if (ex.status === 404) {
+        await gh('POST', '/user/repos', { name: repo, description: 'ราคาขายปลีกน้ำมันรายแบรนด์จาก สนพ. (EPPO) — ดึงอัตโนมัติทุกวัน', private: false, auto_init: true, has_wiki: false, has_projects: false });
+        for (let i = 0; i < 10; i++) { const r = await gh('GET', P + '/git/ref/heads/main', null, [404, 409]); if (r.status === 200) break; await sleep(2000); }
+      }
+    });
+    await step('upload', (report) => uploadFiles(owner, repo, state.mode === 'update', report));
+    await step('actions', () => applySettings(owner, repo, warn));
+    await step('pages', () => enablePages(owner, repo));
+    await step('security', () => extraSecurity(owner, repo, warn));
+    await step('register', (report) => waitWorkflow(owner, repo, report));
+    await step('dispatch', async () => { state.dispatchedAt = await dispatch(owner, repo, state.mode === 'update' ? 'daily' : 'backfill', state.mode === 'update' ? null : '2025-01-01'); });
+    const run = await step('run', (report) => watchRun(owner, repo, state.dispatchedAt, report));
+    if (run && run.partial) warn('Dashboard ออนไลน์แล้วด้วยข้อมูลตั้งต้น แต่รอบนี้ดึงข้อมูลจากเว็บ สนพ. ไม่สำเร็จ (อาจถูกไฟร์วอลล์ของ สนพ. บล็อกชั่วคราว) — ระบบจะลองเองอีกครั้งตามเวลา 10:05 น. หรือกด "ดึงราคาวันนี้ตอนนี้" ในแท็บแผงควบคุมภายหลัง');
+    const pg = await gh('GET', P + '/pages', null, [404]);
+    state.pagesUrl = pg.status === 200 ? pg.json.html_url : `https://${owner.toLowerCase()}.github.io/${repo}/`;
+    $('#siteUrl').textContent = state.pagesUrl; $('#openSite').href = state.pagesUrl; $('#openRepo').href = `https://github.com/${owner}/${repo}`;
+    if (warns.length) msg('#doneWarn', 'warn', 'ข้อสังเกต (ไม่กระทบการทำงาน)', warns.join(' · '));
+    go(5);
+  } catch (e) {
+    const cur = TASKS.find(([id]) => !state.done.has(id));
+    renderTasks(cur && cur[0], 'fail', e.hint || thaiHint(e));
+    msg('#installMsg', 'bad', '✗ ติดตั้งไม่สำเร็จที่ขั้น: ' + (cur ? cur[1] : ''), e.hint || thaiHint(e));
+    $('#failActions').hidden = false;
+  }
+}
+$('#startInstall').onclick = () => install().catch((e) => msg('#repoMsg', 'bad', '✗ ' + thaiHint(e)));
+$('#newToken').onclick = () => { $('#token').value = ''; $('#tokMsg').replaceChildren(); go(2); };
+$('#retryInstall').onclick = () => { if (state.done.has('dispatch') && !state.done.has('run')) { state.done.delete('dispatch'); } runInstall(); };
+
+// ------------------------------------------------------------------ control panel
+function tab(which) { $('#tab-install').setAttribute('aria-selected', String(which === 'install')); $('#tab-manage').setAttribute('aria-selected', String(which === 'manage')); $('#view-install').hidden = which !== 'install'; $('#view-manage').hidden = which !== 'manage'; }
+$('#tab-install').onclick = () => tab('install'); $('#tab-manage').onclick = () => tab('manage');
+let mgh = null; let mOwner = null; let mRepo = null;
+$('#mConnect').onclick = async () => {
+  try {
+    mgh = makeGh($('#mToken').value.trim()); gh = mgh;
+    const u = await mgh('GET', '/user'); mOwner = u.json.login; mRepo = $('#mRepo').value.trim();
+    await mgh('GET', `/repos/${mOwner}/${mRepo}`);
+    login = mOwner; msg('#mMsg', 'ok', `✓ เชื่อมต่อ ${mOwner}/${mRepo} แล้ว`); $('#mPanel').hidden = false;
+    const pg = await mgh('GET', `/repos/${mOwner}/${mRepo}/pages`, null, [404]);
+    $('#mSite').href = pg.status === 200 ? pg.json.html_url : `https://${mOwner.toLowerCase()}.github.io/${mRepo}/`;
+    loadRuns();
+  } catch (e) { msg('#mMsg', 'bad', '✗ เชื่อมต่อไม่ได้', thaiHint(e)); }
+};
+async function loadRuns() {
+  const r = await mgh('GET', `/repos/${mOwner}/${mRepo}/actions/workflows/${WF}/runs?per_page=10`, null, [404]);
+  const tb = $('#runsBody'); tb.replaceChildren();
+  for (const x of (r.json && r.json.workflow_runs) || []) {
+    const res = x.status !== 'completed' ? '⏳ กำลังทำงาน' : x.conclusion === 'success' ? '✅ สำเร็จ' : '❌ ' + x.conclusion;
+    tb.append(el('tr', {}, el('td', {}, new Date(x.created_at).toLocaleString('th-TH')), el('td', {}, x.event === 'schedule' ? 'ตามเวลาอัตโนมัติ' : 'สั่งเอง'), el('td', {}, res), el('td', {}, el('a', { href: x.html_url, target: '_blank', rel: 'noopener noreferrer' }, 'Log'))));
+  }
+}
+$('#mRefresh').onclick = () => loadRuns();
+document.querySelectorAll('[data-act]').forEach((b) => b.addEventListener('click', async () => {
+  const a = b.dataset.act; const P = `/repos/${mOwner}/${mRepo}`;
+  b.disabled = true; msg('#actMsg', 'info', 'กำลังทำ…');
+  try {
+    if (a === 'daily' || a === 'rebuild') await dispatch(mOwner, mRepo, a);
+    if (a === 'backfill') await dispatch(mOwner, mRepo, 'backfill', '2025-01-01');
+    if (a === 'update') { await uploadFiles(mOwner, mRepo, true, (t) => msg('#actMsg', 'info', t)); await dispatch(mOwner, mRepo, 'rebuild'); }
+    if (a === 'fix-network') await mgh('POST', P + '/actions/variables', { name: 'EGRESS_POLICY', value: 'audit' }, [409]).then((r) => r.status === 409 ? mgh('PATCH', P + '/actions/variables/EGRESS_POLICY', { name: 'EGRESS_POLICY', value: 'audit' }) : r);
+    if (a === 'fix-network-off') await mgh('DELETE', P + '/actions/variables/EGRESS_POLICY', null, [404]);
+    if (a === 'fix-settings') { await applySettings(mOwner, mRepo, () => {}); await enablePages(mOwner, mRepo); await extraSecurity(mOwner, mRepo, () => {}); }
+    msg('#actMsg', 'ok', '✓ สั่งแล้ว', a.startsWith('fix') ? 'ตั้งค่าเรียบร้อย — สั่ง "ดึงราคาวันนี้ตอนนี้" เพื่อทดสอบ' : 'ดูผลในตาราง "การรันล่าสุด" (กดรีเฟรชสถานะ ทุก 1–2 นาที)');
+    setTimeout(loadRuns, 4000);
+  } catch (e) { msg('#actMsg', 'bad', '✗ ไม่สำเร็จ', thaiHint(e)); }
+  finally { b.disabled = false; }
+}));
+go(1);
+</script>
+</body>
+</html>

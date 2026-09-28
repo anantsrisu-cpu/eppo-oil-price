@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Security: only files from this site may load/run; no inline script, no third-party code -->
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
+<title>ราคาน้ำมันขายปลีก</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/app.js" defer></script>
+</head>
+<body>
+<div class="page">
+  <header class="top">
+    <div>
+      <h1>ราคาขายปลีกน้ำมันรายแบรนด์</h1>
+      <p class="sub">กรุงเทพฯ และปริมณฑล · หน่วย บาท/ลิตร · ข้อมูล ณ <strong id="asof">—</strong>
+        · อัปเดต <span id="generated">—</span></p>
+    </div>
+    <button id="theme" class="ghost" type="button" aria-label="สลับโหมดสว่าง/มืด">◐</button>
+  </header>
+
+  <section class="filters" aria-label="ตัวกรอง">
+    <label class="field">ชนิดน้ำมัน
+      <select id="f-product"></select>
+    </label>
+    <div class="field">ช่วงเวลา
+      <div class="seg" id="f-range" role="group" aria-label="ช่วงเวลา"></div>
+    </div>
+    <div class="field">มุมมองกราฟเส้น
+      <div class="seg" id="f-period" role="group" aria-label="มุมมอง"></div>
+    </div>
+    <div class="field grow">แบรนด์
+      <div class="chips" id="f-brands" role="group" aria-label="เลือกแบรนด์"></div>
+    </div>
+  </section>
+
+  <div id="notice" class="notice" hidden></div>
+
+  <section class="kpis" id="kpis" aria-label="ตัวเลขสรุป"></section>
+
+  <section class="card" id="card-trend">
+    <div class="card-head">
+      <div>
+        <h2 id="trend-title">แนวโน้มราคา</h2>
+        <p class="hint" id="trend-hint"></p>
+      </div>
+      <div class="tools"><div class="legend" id="trend-legend"></div>
+        <button class="xbtn" type="button" data-csv="card-trend">⬇ CSV</button><button class="xbtn" type="button" data-png="card-trend">⬇ PNG</button></div>
+    </div>
+    <div class="chart" id="trend"></div>
+  </section>
+
+  <div class="grid2">
+    <section class="card" id="card-bars">
+      <div class="card-head"><div>
+        <h2>กราฟแท่ง: ราคาวันล่าสุดแต่ละแบรนด์</h2>
+        <p class="hint" id="bars-hint"></p></div>
+        <div class="tools"><button class="xbtn" type="button" data-csv="card-bars">⬇ CSV</button><button class="xbtn" type="button" data-png="card-bars">⬇ PNG</button></div>
+      </div>
+      <div class="chart" id="bars"></div>
+    </section>
+    <section class="card" id="card-donut">
+      <div class="card-head"><div>
+        <h2>กราฟวงกลม: โครงสร้างราคา ปตท.</h2>
+        <p class="hint" id="donut-hint"></p></div>
+        <div class="tools"><button class="xbtn" type="button" data-csv="card-donut">⬇ CSV</button><button class="xbtn" type="button" data-png="card-donut">⬇ PNG</button></div>
+      </div>
+      <div id="donut"></div>
+    </section>
+  </div>
+
+  <section class="card" id="card-avg">
+    <div class="card-head">
+      <div><h2 id="avg-title">กราฟแท่ง: ราคาเฉลี่ย</h2>
+        <p class="hint">ค่าเฉลี่ยราคาทุกวันในเดือน/ปี ของแบรนด์ที่เลือก</p></div>
+      <div class="tools"><div class="legend" id="avg-legend"></div><div class="seg" id="avg-per" role="group" aria-label="รายเดือนหรือรายปี"></div>
+        <button class="xbtn" type="button" data-csv="card-avg">⬇ CSV</button><button class="xbtn" type="button" data-png="card-avg">⬇ PNG</button></div>
+    </div>
+    <div class="chart" id="avg"></div>
+  </section>
+
+  <section class="card" id="card-matrix">
+    <div class="card-head"><div>
+      <h2>ราคาวันล่าสุด ทุกแบรนด์ × ทุกชนิดน้ำมัน</h2>
+      <p class="hint">ตัวหนา = ราคาต่ำสุดของชนิดนั้น · — = แบรนด์ไม่มีจำหน่าย</p></div>
+      <div class="tools"><button class="xbtn" type="button" data-csv="card-matrix">⬇ CSV</button></div>
+    </div>
+    <div class="table-wrap" id="matrix"></div>
+  </section>
+
+  <section class="card" id="card-pivot">
+    <div class="card-head">
+      <div><h2 id="pivot-title">Pivot ค่าเฉลี่ย</h2>
+        <p class="hint">ค่าเฉลี่ยราคาทุกวันปฏิทินในช่วงที่เลือก (บาท/ลิตร) · *nว. = มีข้อมูลเพียง n วัน เทียบกันตรง ๆ ไม่ได้</p></div>
+      <div class="tools"><button class="xbtn" type="button" data-csv="card-pivot">⬇ CSV</button></div>
+    </div>
+    <div class="table-wrap tall" id="pivot"></div>
+  </section>
+
+  <section class="card" id="card-coverage">
+    <div class="card-head"><div>
+      <h2>ข้อมูลที่มีของแต่ละแบรนด์</h2>
+      <p class="hint">ทำไมบางแบรนด์ไม่มีกราฟย้อนหลัง — ดูจากตารางนี้</p></div>
+      <div class="tools"><button class="xbtn" type="button" data-csv="card-coverage">⬇ CSV</button></div>
+    </div>
+    <div class="table-wrap" id="coverage"></div>
+  </section>
+
+  <section class="card" id="card-changes">
+    <div class="card-head"><div>
+      <h2>ประวัติการปรับราคา</h2>
+      <p class="hint" id="changes-hint"></p></div>
+      <div class="tools"><button class="xbtn" type="button" data-csv="card-changes">⬇ CSV</button></div>
+    </div>
+    <div class="table-wrap tall" id="changes"></div>
+  </section>
+
+  <section class="card foot">
+    <h2>ดาวน์โหลดข้อมูลทั้งหมด</h2>
+    <div class="dl-grid">
+      <a class="dl" href="downloads/oil_price_report.xlsx" download><b>Excel รายงาน</b><span>Pivot ทุกมุมมอง + ชีท Data สำหรับทำ PivotTable เอง</span></a>
+      <a class="dl" href="downloads/oil_prices.sqlite" download><b>ฐานข้อมูล SQLite</b><span>สำหรับ Query ด้วย SQL / Power BI</span></a>
+      <a class="dl" href="downloads/monthly_avg.csv" download><b>CSV ค่าเฉลี่ยรายเดือน</b><span>ทุกแบรนด์ × ทุกชนิด</span></a>
+      <a class="dl" href="downloads/yearly_avg.csv" download><b>CSV ค่าเฉลี่ยรายปี</b><span>ทุกแบรนด์ × ทุกชนิด</span></a>
+      <a class="dl" href="downloads/latest_prices.csv" download><b>CSV ราคาล่าสุด</b><span>ชนิดน้ำมัน × แบรนด์</span></a>
+      <a class="dl" href="data/dashboard.json"><b>dashboard.json</b><span>ข้อมูลดิบของหน้านี้</span></a>
+    </div>
+    <div class="notes" id="notes"></div>
+  </section>
+</div>
+<div id="tip" class="tip" role="status" hidden></div>
+</body>
+</html>
