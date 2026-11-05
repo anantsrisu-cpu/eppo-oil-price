@@ -466,6 +466,8 @@ def build_events(rows: list[dict], first_poll_at: str, since: str | None = None)
                                             "rankable": basis in RANKABLE and not excluded and at is not None})
     events = []
     for eff, items in sorted(groups.items(), reverse=True):
+        if all(x["basis"] == "excluded" for x in items):
+            continue                              # only re-publishers (often with a wrong date) -> not an event
         items.sort(key=lambda x: (not x["rankable"], x["_at"] or datetime.max.replace(tzinfo=BKK)))
         ranked = [x for x in items if x["rankable"]]
         first_at = ranked[0]["_at"] if ranked else None
