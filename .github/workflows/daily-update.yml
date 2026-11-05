@@ -116,10 +116,51 @@ jobs:
             echo "No data changes."
           else
             git commit -m "data: EPPO oil prices $(TZ=Asia/Bangkok date +%F) [${{ github.run_id }}]"
-            for i in 1 2 3; do git pull --rebase --quiet && git push && break || sleep 10; done
+            # harden-runner (block mode) sometimes refuses github.com for a few seconds
+            # (ECONNREFUSED) -> retry 5 times with a growing wait, and FAIL loudly if the
+            # push never succeeds (the old loop ended with `sleep`, so it reported success)
+            pushed=0
+            for i in 1 2 3 4 5; do
+              if git pull --rebase --quiet && git push; then pushed=1; break; fi
+              echo "::warning::git pull/push attempt $i failed - retrying in $((i * 15))s"
+              sleep $((i * 15))
+            done
+            [ "$pushed" = 1 ] || { echo "::error::Could not push data commit after 5 attempts"; exit 1; }
           fi
 
+      # The Pages upload can hit the same short-lived ECONNREFUSED from harden-runner
+      # ("Failed to CreateArtifact: Unable to make request: ECONNREFUSED").
+      # Try up to 3 times; the waits are longer than the 30-60 s DNS TTL of GitHub's
+      # artifact endpoints, so the retry resolves a fresh, allow-listed IP.
       - name: Upload dashboard for GitHub Pages
+        id: upload1
+        continue-on-error: true
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: _site
+
+      - name: Wait before retrying upload (1)
+        if: steps.upload1.outcome == 'failure'
+        run: |
+          echo "::warning::Pages upload failed (attempt 1) - retrying in 60s"
+          sleep 60
+
+      - name: Upload dashboard for GitHub Pages (retry 1)
+        id: upload2
+        if: steps.upload1.outcome == 'failure'
+        continue-on-error: true
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: _site
+
+      - name: Wait before retrying upload (2)
+        if: steps.upload2.outcome == 'failure'
+        run: |
+          echo "::warning::Pages upload failed (attempt 2) - retrying in 120s"
+          sleep 120
+
+      - name: Upload dashboard for GitHub Pages (retry 2)
+        if: steps.upload2.outcome == 'failure'
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: _site
