@@ -6,7 +6,7 @@
   const TH_M = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
   const RANGES = [['30', '30 วัน'], ['90', '90 วัน'], ['180', '6 เดือน'], ['365', '1 ปี'], ['ytd', 'ปีนี้'], ['1095', '3 ปี'], ['y2018', 'ปี 2561'], ['all', 'ทั้งหมด']];
   const PERIODS = [['daily', 'รายวัน'], ['monthly', 'รายเดือน'], ['yearly', 'รายปี']];
-  const DEFAULT = { product: 'gh95', range: '365', period: 'daily', brands: ['ptt', 'bcp', 'shell', 'caltex'], avgPer: 'monthly' };
+  const DEFAULT = { product: 'gh95', range: '365', period: 'daily', brands: ['ptt', 'bcp', 'shell', 'caltex'], avgPer: 'monthly', newsView: 'all', newsFuel: 'any', newsSite: null };
   let D = null;
   let state = load();
 
@@ -514,6 +514,153 @@
     for (const w of mt.warnings || []) host.append(h('p', {}, '⚠ ' + w));
   }
 
+  // ---------------------------------------------------------------- online news: which website announced a price change first
+  const NEWS_VIEWS = [['all', 'รวมทุกเว็บ'], ['site', 'แยกตามเว็บ']];
+  const NEWS_FUELS = [['any', 'ทุกชนิด'], ['diesel', 'ดีเซล'], ['gasoline', 'เบนซิน/แก๊สโซฮอล์'], ['gas', 'LPG/NGV']];
+  const DIR = { up: ['▲', 'ขึ้น'], down: ['▼', 'ลด'], freeze: ['■', 'ตรึงราคา'], mixed: ['▲▼', 'ขึ้น/ลด'] };
+  const BASIS = {
+    pub: 'เวลาเผยแพร่ของเว็บ', seen: 'ไม่เกินเวลานี้ (เวลาที่ระบบเห็นหัวข่าวแจ้งปรับราคาครั้งแรก)',
+    unverified: 'บทความราคาน้ำมันรายวันที่แก้หัวข่าวภายหลัง จึงระบุเวลาที่แจ้งไม่ได้', date: 'ทราบเฉพาะวันที่',
+    excluded: 'เว็บรวมข่าวหรือโซเชียลมีเดีย ไม่นำมาจัดอันดับ',
+  };
+  let itemById = new Map();
+  const safeUrl = (u) => (typeof u === 'string' && /^https:\/\/[^\s"'<>]+$/.test(u) ? u : null);
+  const extLink = (u, text) => { const ok = safeUrl(u); return ok ? h('a', { href: ok, target: '_blank', rel: 'noopener noreferrer' }, text) : h('span', {}, text); };
+  const hhmm = (iso) => (iso ? iso.slice(11, 16) : '');
+  const whenTh = (iso) => (iso ? `${thDate(iso.slice(0, 10))} ${hhmm(iso)} น.` : '—');
+  const lagTxt = (m) => (m <= 0 ? 'แจ้งก่อน' : m < 180 ? `+${m} นาที` : `+${Math.round(m / 60)} ชม.`);
+  function fuelGroups(tags) {
+    const g = new Set();
+    for (const t of tags || []) {
+      if (t === 'ทุกชนิด') { g.add('diesel'); g.add('gasoline'); } else if (t.startsWith('ดีเซล')) g.add('diesel');
+      else if (t === 'LPG' || t === 'NGV') g.add('gas'); else g.add('gasoline');
+    }
+    return g;
+  }
+  const fuelOk = (tags) => state.newsFuel === 'any' || fuelGroups(tags).has(state.newsFuel);
+  const fuelText = (ev) => (ev.fuels.length ? ev.fuels.join(', ') : 'น้ำมันหลายชนิด') + (ev.except.length ? ` (ยกเว้น ${ev.except.join(', ')})` : '');
+  const moveText = (ev) => { const d = DIR[ev.direction] || ['', 'ปรับราคา']; const a = (ev.amounts || []).map((x) => (+x).toFixed(2)).join(' / '); return { sym: d[0], word: d[1], amt: a }; };
+  function dirTag(dir) { const d = DIR[dir]; return d ? h('span', { class: 'dirtag ' + dir }, `${d[0]} ${d[1]}`) : null; }
+  function newsRanking(evs) {   // same rule as news.ranking() in Python, recomputed for the fuel filter
+    const st = new Map();
+    for (const ev of evs) for (const s of ev.sites) {
+      const x = st.get(s.domain) || { domain: s.domain, name: s.name, events: 0, first: 0, top3: 0, lags: [] };
+      x.events++; if (s.rank === 1) x.first++; if (s.rank <= 3) x.top3++; x.lags.push(s.lag_min); st.set(s.domain, x);
+    }
+    const med = (a) => { const b = [...a].sort((p, q) => p - q); const m = b.length >> 1; return b.length % 2 ? b[m] : Math.round((b[m - 1] + b[m]) / 2); };
+    return [...st.values()].map((x) => Object.assign(x, { median: med(x.lags) }))
+      .sort((a, b) => b.first - a.first || b.top3 - a.top3 || a.median - b.median || b.events - a.events || a.name.localeCompare(b.name, 'th'));
+  }
+  function verifyLine(ev) {
+    if (ev.effective_date > (D.meta.last_snapshot || D.meta.latest_date)) return 'ราคาจริงจาก สนพ. จะตรวจเทียบได้หลังระบบดึงราคาของวันที่มีผล';
+    const list = (D.changes || []).filter((c) => c.date === ev.effective_date && c.brand_code === 'ptt');
+    if (!list.length) return `ข้อมูล สนพ. ไม่พบการเปลี่ยนราคาของ ปตท. ในวันที่ ${thDate(ev.effective_date)}`;
+    return 'ราคาจริงจาก สนพ. (ปตท.): ' + list.slice(0, 8).map((c) => `${(product(c.product_code) || { th: c.product_code }).th} ${f2(c.prev_price)} → ${f2(c.price)}`).join(', ');
+  }
+  function lagBars(ev, limit) {
+    const sites = ev.sites.slice(0, limit || ev.sites.length);
+    const max = Math.max(30, ...sites.map((s) => s.lag_min));
+    const box = h('div', { class: 'lag', role: 'list', 'aria-label': 'เวลาที่แต่ละเว็บแจ้งข่าว เทียบกับเว็บแรก' });
+    for (const s of sites) {
+      const it = itemById.get(s.guid);
+      box.append(h('div', { class: 'lag-row' + (s.rank === 1 ? ' first' : ''), role: 'listitem', title: it ? `${it.t}\n${whenTh(s.at)} (${BASIS[s.basis] || ''})` : '' },
+        h('span', { class: 'site' }, extLink(it && it.u, s.name)),
+        h('span', { class: 'track', 'aria-hidden': 'true' }, h('i', { class: 'fill', style: `width:${Math.max(1.5, (s.lag_min / max) * 100)}%` })),
+        h('span', { class: 't' }, s.rank === 1 ? `${s.basis === 'seen' ? '≤ ' : ''}${hhmm(s.at)} น.` : lagTxt(s.lag_min))));
+    }
+    box.append(h('div', { class: 'lag-axis', 'aria-hidden': 'true' }, h('span'), h('span', {}, h('span', {}, 'เว็บแรก'), h('span', {}, lagTxt(max))), h('span')));
+    if (limit && ev.sites.length > limit) box.append(h('p', { class: 'small-note' }, `และอีก ${ev.sites.length - limit} เว็บ (ดูทั้งหมดในรายการด้านล่าง)`));
+    return box;
+  }
+  function eventDetail(ev) {
+    const inner = h('div', { class: 'inner' });
+    const it = ev.first ? itemById.get(ev.first.guid) : null;
+    inner.append(ev.first ? h('p', { class: 'news-first' }, 'แจ้งเร็วที่สุด: ', h('b', {}, ev.first.name), ` ${whenTh(ev.first.at)} `, extLink(it && it.u, it ? `“${it.t}”` : 'เปิดข่าว'))
+      : h('p', { class: 'news-first' }, 'ยังระบุเว็บที่แจ้งก่อนไม่ได้ (ข่าวที่พบไม่มีเวลาเผยแพร่ที่ตรวจสอบได้)'));
+    if (ev.sites.length) inner.append(lagBars(ev));
+    const other = ev.items.filter((x) => !['pub', 'seen'].includes(x.basis)).map((x) => itemById.get(x.guid)).filter(Boolean);
+    if (other.length) {
+      inner.append(h('p', { class: 'small-note' }, 'ข่าวที่ไม่นำมาจัดอันดับ: '),
+        h('ul', { class: 'small-note' }, other.slice(0, 12).map((x) => h('li', {}, `${x.sn}: `, extLink(x.u, x.t), ` (${BASIS[x.basis] || ''})`))));
+    }
+    inner.append(h('p', { class: 'verify' }, verifyLine(ev)));
+    return inner;
+  }
+  let newsShown = 6; let rankAll = false;
+  function newsAll(host, evs) {
+    const grid = h('div', { class: 'news-grid' }); const main = h('div', {}); const side = h('div', { class: 'news-side' });
+    if (!evs.length) main.append(h('div', { class: 'empty' }, 'ยังไม่มีข่าวแจ้งปรับราคาของน้ำมันกลุ่มนี้'));
+    else {
+      const ev = evs[0]; const mv = moveText(ev); const it = ev.first ? itemById.get(ev.first.guid) : null;
+      main.append(h('div', { class: 'news-lead' },
+        h('div', { class: 'what' }, h('span', { class: 'move ' + (ev.direction === 'up' ? 'up' : ev.direction === 'down' ? 'down' : '') },
+          `${mv.sym} ${mv.word}${mv.amt ? ' ' + mv.amt : ''}`, mv.amt ? h('small', {}, 'บาท/ลิตร') : null), h('span', { class: 'fuel' }, fuelText(ev))),
+        h('div', { class: 'eff' }, `มีผล ${thDate(ev.effective_date)} · มีข่าวจาก ${ev.sites.length || ev.items.length} เว็บ`),
+        ev.first ? h('p', { class: 'news-first' }, 'แจ้งเร็วที่สุด: ', h('b', {}, ev.first.name), ` ${whenTh(ev.first.at)} `, extLink(it && it.u, it ? `“${it.t}”` : 'เปิดข่าว'))
+          : h('p', { class: 'news-first' }, 'ยังระบุเว็บที่แจ้งก่อนไม่ได้'),
+        ev.sites.length ? lagBars(ev, 8) : null, h('p', { class: 'verify' }, verifyLine(ev))));
+      const rest = evs.slice(1);
+      if (rest.length) {
+        const list = h('div', { class: 'nev-list' }, h('h3', {}, 'การปรับราคาครั้งก่อน ๆ'));
+        for (const e of rest.slice(0, newsShown)) {
+          const m = moveText(e); const d = h('details', { class: 'nev' });
+          d.append(h('summary', {}, h('span', { class: 'd' }, thDate(e.effective_date)),
+            h('span', { class: 's' }, dirTag(e.direction), ` ${m.amt ? m.amt + ' บาท ' : ''}${fuelText(e)}`),
+            h('span', { class: 'w' }, e.first ? `${e.first.name} ${e.first.basis === 'seen' ? '≤ ' : ''}${hhmm(e.first.at)} น.` : 'ระบุไม่ได้')));
+          d.addEventListener('toggle', () => { if (d.open && d.children.length === 1) d.append(eventDetail(e)); });
+          list.append(d);
+        }
+        if (rest.length > newsShown) list.append(h('button', { type: 'button', class: 'xbtn more', onclick: () => { newsShown += 10; news(); } }, `แสดงเพิ่ม (${rest.length - newsShown})`));
+        main.append(list);
+      }
+    }
+    const rk = newsRanking(evs); const N = D.news || {};
+    side.append(h('h3', {}, 'เว็บที่แจ้งข่าวเร็วที่สุด'),
+      h('p', { class: 'hint' }, rk.length ? `จากการปรับราคา ${evs.filter((e) => e.sites.length).length} ครั้ง ตั้งแต่ ${thDate((N.first_poll_at || N.since || D.meta.latest_date).slice(0, 10))}` : 'ยังไม่มีข้อมูลพอจัดอันดับ'));
+    if (rk.length) {
+      const rows = (rankAll ? rk : rk.slice(0, 10)).map((x, i) => [String(i + 1), x.name, String(x.first), String(x.top3), x.median === 0 ? '—' : `${x.median} นาที`, String(x.events)]);
+      side.append(h('div', { class: 'table-wrap' }, table(['#', 'เว็บไซต์', 'แจ้งก่อน (ครั้ง)', 'ติด 3 อันดับแรก', 'ช้ากว่าเว็บแรก (มัธยฐาน)', 'มีข่าว (ครั้ง)'], rows, (i) => (i === 0 ? 'rank1' : null))));
+      if (rk.length > 10) side.append(h('button', { type: 'button', class: 'xbtn more', onclick: () => { rankAll = !rankAll; news(); } }, rankAll ? 'แสดง 10 อันดับ' : `แสดงทั้งหมด (${rk.length} เว็บ)`));
+    }
+    side.append(h('p', { class: 'small-note' }, 'อันดับ 1 = เว็บที่แจ้งข่าวก่อนบ่อยที่สุด ใช้เวลาเผยแพร่ของแต่ละเว็บ (≤ = ไม่เกินเวลานี้) ไม่นับเว็บรวมข่าวและโซเชียลมีเดีย'));
+    grid.append(main, side); host.append(grid);
+    setExport('card-news', 'ข่าวแจ้งปรับราคา_ความเร็ว', [['วันที่มีผล', 'ทิศทาง', 'ชนิดน้ำมัน', 'บาท/ลิตร', 'อันดับ', 'เว็บไซต์', 'เวลาแจ้ง', 'ช้ากว่าเว็บแรก (นาที)', 'หัวข้อข่าว', 'ลิงก์'],
+      ...evs.flatMap((e) => e.sites.map((s) => { const x = itemById.get(s.guid) || {}; return [e.effective_date, (DIR[e.direction] || ['', ''])[1], fuelText(e), (e.amounts || []).join(' / '), s.rank, s.name, s.at, s.lag_min, x.t || '', x.u || '']; }))]);
+  }
+  function newsSite(host, evs) {
+    const N = D.news; const rk = newsRanking(evs);
+    const sites = new Map(); for (const x of N.items) if (!sites.has(x.s)) sites.set(x.s, x.sn);
+    const order = [...rk.map((r) => r.domain), ...[...sites.keys()].filter((d) => !rk.some((r) => r.domain === d)).sort()];
+    if (!state.newsSite || !sites.has(state.newsSite)) state.newsSite = order[0];
+    const sel = h('select', { 'aria-label': 'เลือกเว็บไซต์', onchange: (e) => { state.newsSite = e.target.value; save(); news(); } },
+      order.map((d) => h('option', { value: d, selected: d === state.newsSite }, `${sites.get(d)} (${d})`)));
+    const rankOf = new Map(); for (const e of evs) for (const s of e.sites) rankOf.set(s.guid, s);
+    const items = N.items.filter((x) => x.s === state.newsSite && fuelOk(x.f));
+    const r = rk.find((x) => x.domain === state.newsSite);
+    host.append(h('div', { class: 'news-site' }, h('label', { class: 'field' }, 'เว็บไซต์', sel),
+      h('p', { class: 'hint' }, r ? `แจ้งข่าวก่อนเว็บอื่น ${r.first} จาก ${r.events} ครั้ง · ติด 3 อันดับแรก ${r.top3} ครั้ง · ช้ากว่าเว็บแรกโดยมัธยฐาน ${r.median} นาที`
+        : (N.excluded_domains || []).some((d) => state.newsSite === d || state.newsSite.endsWith('.' + d)) ? BASIS.excluded : 'ยังไม่มีข่าวแจ้งปรับราคาที่จับเวลาได้จากเว็บนี้'),
+      items.length ? h('div', { class: 'table-wrap tall' }, table(['เวลา', 'มีผล', 'หัวข้อข่าว', 'ประเภท', 'อันดับในครั้งนั้น'],
+        items.map((x) => { const s = rankOf.get(x.id); return [`${x.basis === 'seen' ? '≤ ' : ''}${whenTh(x.at || x.pub)}`, x.eff ? thDate(x.eff) : '—', h('td', {}, extLink(x.u, x.t)),
+          x.k === 'adjust' ? 'แจ้งปรับราคา' : 'ราคาประจำวัน', s ? (s.rank === 1 ? 'แจ้งก่อน' : `${s.rank} (${lagTxt(s.lag_min)})`) : '—']; })))
+        : h('div', { class: 'empty' }, 'ไม่มีข่าวจากเว็บนี้ในกลุ่มน้ำมันที่เลือก')));
+    setExport('card-news', `ข่าวน้ำมัน_${state.newsSite}`, [['เวลา', 'วันที่มีผล', 'ประเภท', 'ทิศทาง', 'ชนิดน้ำมัน', 'บาท/ลิตร', 'หัวข้อข่าว', 'ลิงก์', 'ที่มาของเวลา'],
+      ...items.map((x) => [x.at || x.pub, x.eff, x.k, x.dir, x.f.join(', '), x.a.join(' / '), x.t, x.u, x.basis])]);
+  }
+  function news() {
+    const host = clear($('#news-body')); const N = D.news || {};
+    const seg = (el, items, key) => { clear(el); for (const [v, label] of items) el.append(h('button', { type: 'button', 'aria-pressed': String(state[key] === v), onclick: () => { state[key] = v; save(); news(); } }, label)); };
+    seg($('#news-view'), NEWS_VIEWS, 'newsView'); seg($('#news-fuel'), NEWS_FUELS, 'newsFuel');
+    if (!N.items || !N.items.length) {
+      host.append(h('div', { class: 'empty' }, 'ยังไม่มีข่าว ระบบจะเริ่มเก็บข่าวหลังเวิร์กโฟลว์ "News update" รันครั้งแรก (ทุก ~20 นาที)'));
+      setExport('card-news', 'ข่าวแจ้งปรับราคา', [['ยังไม่มีข้อมูล']]); return;
+    }
+    itemById = new Map(N.items.map((x) => [x.id, x]));
+    $('#news-hint').textContent = `ข่าวออนไลน์จากทุกสำนักข่าว (Google News) อัปเดตทุก ~20 นาที เทียบว่าเว็บไหนแจ้งข่าวก่อน${N.first_poll_at ? ` · เริ่มจับเวลา ${whenTh(N.first_poll_at)}` : ''}`;
+    const evs = (N.events || []).filter((e) => fuelOk(e.fuels.length ? e.fuels : ['ทุกชนิด']));
+    if (state.newsView === 'site') newsSite(host, evs); else newsAll(host, evs);
+  }
+
   // ---------------------------------------------------------------- controls
   function controls() {
     const sel = clear($('#f-product'));
@@ -548,7 +695,7 @@
   function init() {
     $('#asof').textContent = thDate(D.meta.latest_date);
     $('#generated').textContent = D.meta.generated_at.replace('T', ' ').slice(0, 16);
-    notes(); render();
+    notes(); render(); news();   // news has its own controls; not re-drawn on resize (keeps open details)
     document.addEventListener('click', (e) => {
       const b = e.target.closest('[data-csv],[data-png]'); if (!b) return;
       if (b.dataset.csv) exportCSV(b.dataset.csv); else exportPNG(b.dataset.png);

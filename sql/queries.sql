@@ -89,3 +89,11 @@ GROUP BY p.product_code ORDER BY p.sort_order;
 -- [12] ตรวจคุณภาพข้อมูล: จำนวนวันแยกตามแหล่งข้อมูล
 SELECT brand_code, source, COUNT(*) AS rows, MIN(date) AS first, MAX(date) AS last
 FROM fact_retail_daily GROUP BY brand_code, source ORDER BY brand_code, source;
+
+-- [13] ข่าวออนไลน์: เว็บที่แจ้งข่าวปรับราคาน้ำมันเร็วที่สุด
+SELECT * FROM v_news_fastest LIMIT 15;
+
+-- [14] ข่าวออนไลน์: เว็บที่แจ้งก่อนในแต่ละครั้งที่ปรับราคา
+SELECT s.effective_date, s.source_name, s.reported_at, s.time_basis, n.title
+FROM news_event_sites s JOIN news_items n USING (guid)
+WHERE s.rank = 1 ORDER BY s.effective_date DESC;

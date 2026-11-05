@@ -28,6 +28,11 @@
 | แบรนด์อื่นไม่มีเส้นช่วง 11 ก.ค. 2561 – 23 ก.ย. 2569 | สนพ. ไม่มีราคารายแบรนด์ช่วงนั้น | ปกติ (ข้อจำกัดของต้นทาง) — ระบบไม่เดาตัวเลข |
 | warning `NEW brand code from EPPO: 'xxx'` | สนพ. เพิ่มแบรนด์ใหม่ | เพิ่ม `"xxx": {...}` ใน `BRANDS` (`config.py`) และสีใน `site/assets/style.css` (`--b-xxx`) — ระหว่างนี้ข้อมูลยังถูกเก็บไว้ครบ |
 | warning `NEW product code from EPPO: 'xxx'` | ชนิดน้ำมันใหม่ | เพิ่มใน `PRODUCTS` (`config.py`) |
+| การ์ด "ข่าวแจ้งปรับราคาน้ำมัน" ขึ้นว่า *ยังไม่มีข่าว* | workflow "News update" ยังไม่เคยรัน | Actions → **News update** → Run workflow (ครั้งต่อไปรันเองทุก 20 นาที) |
+| News update ล้ม: `all news queries failed` | Google News ตอบไม่ได้/บล็อก IP ของ GitHub (ระบบแจ้งล้มเมื่อดึงไม่ได้ติดต่อกันเกิน 24 ชม. เท่านั้น) | รอรอบถัดไป. ถ้าเป็นนาน ใช้ self-hosted runner หรือปิด workflow นี้ชั่วคราว (Actions → News update → ⋯ → Disable) |
+| ข่าวปรับราคาบางข่าวไม่ขึ้น / ข่าวที่ไม่เกี่ยวขึ้นมา | กฎคัดหัวข่าวภาษาไทยไม่ครอบคลุม | แก้คำใน `EXCLUDE_RE`, `CHANGE_RE`, `EVIDENCE_RE` (`scripts/eppo/news.py`) แล้วเพิ่มตัวอย่างใน `tests/test_news.py` |
+| ต้องการตัดเว็บออกจากอันดับ / ตั้งชื่อเว็บภาษาไทย | — | `NEWS_EXCLUDE_DOMAINS` / `NEWS_SOURCE_NAMES` ใน `config.py` |
+| commit `news: …` บ่อย | เป็นปกติ: commit เฉพาะรอบที่มีข่าวใหม่ (ไฟล์ `data/news/` เท่านั้น) | ลดความถี่ได้ที่ `cron` ใน `.github/workflows/news-update.yml` |
 | warning `brand esso: effective date … days old -> marked stale` | สนพ. ยังคืนราคาเก่าของแบรนด์นั้น | ปกติ (เอสโซ่) — ไม่นำไปคำนวณ. ถ้าแบรนด์กลับมาอัปเดต ระบบปลดสถานะเองอัตโนมัติ |
 | `structure file … skipped: header row with 'RETAIL' not found` | สนพ. เปลี่ยน layout Excel | ดาวน์โหลดไฟล์นั้นมาเปิดดูหัวคอลัมน์ แล้วแก้ `STRUCTURE_COLUMN_MAP` / `STRUCTURE_PRODUCT_MAP` ใน `config.py` |
 | `structure file … skipped: not an .xlsx file` | ลิงก์ไฟล์ของ สนพ. เสีย (เคยพบ 17–19 เม.ย. 69 ได้ 404) | ข้ามได้ วันนั้นใช้ราคาวันก่อนหน้าต่อ |

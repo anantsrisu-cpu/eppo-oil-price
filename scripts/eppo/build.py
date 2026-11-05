@@ -6,6 +6,7 @@
   4. Excel workbook   -> _site/downloads/oil_price_report.xlsx (pivot sheets + data table)
   5. dashboard JSON   -> _site/data/dashboard.json             (read by the web dashboard)
   6. daily report     -> reports/latest.md, reports/daily/YYYY-MM-DD.md
+  7. online news      -> price-change announcements + "which website reports first" (see news.py)
 """
 from __future__ import annotations
 
@@ -19,7 +20,7 @@ import sqlite3
 from collections import defaultdict
 from datetime import date, timedelta
 
-from . import config
+from . import config, news
 from .storage import read_csv, write_csv
 
 log = logging.getLogger(__name__)
@@ -282,6 +283,18 @@ CREATE VIEW v_changes AS
         FROM fact_retail_daily)
   WHERE prev_price IS NOT NULL AND price <> prev_price
     AND julianday(date) - julianday(prev_date) = 1;   -- ignore jumps across data gaps
+-- online news about price changes (data/news/oil_price_news.csv); reported_at/time_basis: see news.py
+CREATE TABLE news_items (guid TEXT PRIMARY KEY, source_domain TEXT, source_name TEXT, title TEXT, link TEXT,
+                          pub_at TEXT, pub_precise INT, first_seen_at TEXT, adjust_seen_at TEXT, kind TEXT,
+                          template INT, direction TEXT, fuels TEXT, except_fuels TEXT, amounts TEXT,
+                          effective_date TEXT, reported_at TEXT, time_basis TEXT);
+CREATE TABLE news_event_sites (effective_date TEXT, rank INT, source_domain TEXT, source_name TEXT,
+                          reported_at TEXT, lag_min INT, time_basis TEXT, guid TEXT,
+                          PRIMARY KEY (effective_date, source_domain));
+CREATE VIEW v_news_fastest AS
+  SELECT source_name, source_domain, COUNT(*) AS events, SUM(rank = 1) AS times_first,
+         SUM(rank <= 3) AS times_top3, ROUND(AVG(lag_min), 1) AS avg_lag_min
+  FROM news_event_sites GROUP BY source_domain ORDER BY times_first DESC, times_top3 DESC, avg_lag_min;
 CREATE VIEW v_vs_ptt AS
   SELECT f.date, f.brand_code, f.product_code, f.price, p.price AS ptt_price,
          ROUND(f.price - p.price, 2) AS diff_vs_ptt
@@ -323,6 +336,52 @@ def build_sqlite(daily, brand_rows, structure_rows, stale, archive_rows=()) -> s
               for c in cols) for r in structure_rows])
     con.commit()
     return con
+
+
+DIR_TH = {"up": "ขึ้น", "down": "ลด", "freeze": "ตรึงราคา", "mixed": "ขึ้น/ลด", "": ""}
+
+
+def add_news(con, news_rows: list[dict], nb: dict) -> None:
+    fp = nb.get("first_poll_at", "")
+    rows = []
+    for r in news_rows:
+        at, basis = news.reported_time(r, fp) if r.get("kind") == "adjust" else (None, "")
+        rows.append(tuple(r.get(c, "") for c in config.NEWS_COLUMNS) + (news.iso(at), basis))
+    con.executemany(f"INSERT OR REPLACE INTO news_items VALUES ({','.join('?' * (len(config.NEWS_COLUMNS) + 2))})",
+                    rows)
+    con.executemany("INSERT OR REPLACE INTO news_event_sites VALUES (?,?,?,?,?,?,?,?)", [
+        (ev["effective_date"], s["rank"], s["domain"], s["name"], s["at"], s["lag_min"], s["basis"], s["guid"])
+        for ev in nb.get("events", []) for s in ev["sites"]])
+    con.commit()
+
+
+def news_pivots(nb: dict, news_rows: list[dict]) -> dict[str, tuple[list[str], list[list]]]:
+    titles = {r["guid"]: r["title"] for r in news_rows}
+    ev_rows = []
+    for ev in nb.get("events", []):
+        f = ev.get("first") or {}
+        ev_rows.append([ev["effective_date"], DIR_TH.get(ev["direction"], ev["direction"]), ", ".join(ev["fuels"]),
+                        ", ".join(ev["except"]), _num(ev["amount"]), f.get("name", ""), f.get("at", "")[:16].replace("T", " "),
+                        titles.get(f.get("guid"), ""), len(ev["sites"]), ev["n_items"]])
+    rank_rows = [[s["rank"], s["name"], s["domain"], s["first"], s["top3"], s["events"], s["median_lag_min"]]
+                 for s in nb.get("ranking", [])]
+    item_rows = []
+    fp = nb.get("first_poll_at", "")
+    for r in sorted(news_rows, key=lambda x: x.get("pub_at", ""), reverse=True):
+        if r.get("kind") != "adjust":
+            continue
+        at, basis = news.reported_time(r, fp)
+        item_rows.append([r["effective_date"], news.iso(at)[:16].replace("T", " "), basis, r["source_name"],
+                          r["source_domain"], DIR_TH.get(r.get("direction", ""), ""), r["fuels"].replace("|", ", "),
+                          r["amounts"].replace("|", ", "), r["title"], r["link"]])
+    return {
+        "news_events": (["effective_date", "direction", "fuels", "except", "amount_baht", "first_site",
+                         "first_reported_at", "first_headline", "sites", "articles"], ev_rows),
+        "news_ranking": (["rank", "site", "domain", "times_first", "times_top3", "events_reported",
+                          "median_minutes_behind_first"], rank_rows),
+        "news_items": (["effective_date", "reported_at", "time_basis", "site", "domain", "direction", "fuels",
+                        "amounts_baht", "headline", "link"], item_rows),
+    }
 
 
 # ------------------------------------------------------------------ 3/4. pivots
@@ -387,7 +446,7 @@ def _safe_cell(v):
 def write_pivot_csvs(pivots) -> None:
     config.PIVOT_DIR.mkdir(parents=True, exist_ok=True)
     for name, (header, rows) in pivots.items():
-        if name.startswith("daily_") or name == "price_changes":
+        if name.startswith("daily_") or name in ("price_changes", "news_items"):
             continue  # large tables live in the Excel/SQLite downloads
         write_csv(config.PIVOT_DIR / f"{name}.csv",
                   [dict(zip(header, [_safe_cell(v) for v in r])) for r in rows], header)
@@ -412,6 +471,9 @@ def write_excel(pivots, daily, path) -> None:
         ["  eppo_structure/seed_structure = จากไฟล์โครงสร้างราคา, eppo_archive = คลังปุ่ม Generate ปี 2561,"],
         ["  carried_forward = ใช้ราคาล่าสุดต่อ (วันหยุด / ราคาจากคลังมีผลจนถึงประกาศครั้งถัดไป)"],
         ["ต้องการ PivotTable เอง: ไปที่ชีท Data > Insert > PivotTable (ข้อมูลเป็น Excel Table ชื่อ tblDaily)"],
+        ["ชีท News_*: ข่าวออนไลน์ที่แจ้งปรับราคาน้ำมัน (Google News) - News_Events = เว็บที่แจ้งเร็วที่สุดของแต่ละครั้ง,"],
+        ["  News_Ranking = อันดับเว็บที่แจ้งข่าวเร็วที่สุด, News_Items = ข่าวทั้งหมด (time_basis: pub = เวลาเผยแพร่ของเว็บ,"],
+        ["  seen = เวลาที่ระบบเห็นหัวข่าวครั้งแรก (ไม่เกินเวลานี้), unverified/date = ระบุเวลาไม่ได้ ไม่นำไปจัดอันดับ)"],
     ]
     for n in notes:
         ws.append(n)
@@ -422,7 +484,8 @@ def write_excel(pivots, daily, path) -> None:
     sheet_names = {
         "latest_prices": "Latest", "monthly_avg": "Monthly_Avg", "monthly_min": "Monthly_Min",
         "monthly_max": "Monthly_Max", "yearly_avg": "Yearly_Avg", "price_changes": "Price_Changes",
-        "structure_ptt": "Structure_PTT",
+        "structure_ptt": "Structure_PTT", "news_events": "News_Events", "news_ranking": "News_Ranking",
+        "news_items": "News_Items",
     }
     for key, (header, rows) in pivots.items():
         title = sheet_names.get(key) or ("Daily_" + key.split("_", 1)[1])
@@ -436,7 +499,9 @@ def write_excel(pivots, daily, path) -> None:
         s.freeze_panes = "C2" if header[:2] in (["month", "product"], ["year", "product"]) else "B2"
         s.auto_filter.ref = s.dimensions
         for j in range(1, len(header) + 1):
-            s.column_dimensions[get_column_letter(j)].width = 24 if header[j - 1] in ("product", "brand") else (14 if j > 1 else 22)
+            wide = {"product": 24, "brand": 24, "headline": 90, "first_headline": 90, "link": 40, "fuels": 30, "site": 22,
+                    "first_site": 22}
+            s.column_dimensions[get_column_letter(j)].width = wide.get(header[j - 1], 14 if j > 1 else 22)
         for row in s.iter_rows(min_row=2):
             for c in row:
                 if isinstance(c.value, float):
@@ -458,7 +523,7 @@ def write_excel(pivots, daily, path) -> None:
 
 
 # ------------------------------------------------------------------ 5. dashboard JSON
-def build_dashboard_json(con, daily, structure_rows, brand_rows, stale, warnings) -> dict:
+def build_dashboard_json(con, daily, structure_rows, brand_rows, stale, warnings, news_block=None) -> dict:
     con.row_factory = sqlite3.Row
     dates = sorted({r["date"] for r in daily})
     idx = {d: i for i, d in enumerate(dates)}
@@ -539,6 +604,7 @@ def build_dashboard_json(con, daily, structure_rows, brand_rows, stale, warnings
             "first_date": dates[0] if dates else None,
             "latest_date": dates[-1] if dates else None,
             "per_brand_since": first_api,
+            "last_snapshot": max((r["snapshot_date"] for r in brand_rows), default=None),
             "history_start": config.HISTORY_START,
             "reference_brand": config.STRUCTURE_REFERENCE_BRAND,
             "unit": "บาท/ลิตร",
@@ -554,6 +620,7 @@ def build_dashboard_json(con, daily, structure_rows, brand_rows, stale, warnings
         "changes": changes,
         "structure_latest": structure_latest,
         "structure_history": mm,
+        "news": news_block or {},
     }
 
 
@@ -561,7 +628,7 @@ def build_dashboard_json(con, daily, structure_rows, brand_rows, stale, warnings
 MAIN_PRODUCTS = ["gh95", "gh91", "e20", "gl95", "ds", "dsb20", "pds", "gs95p"]
 
 
-def build_report_md(con, stale, warnings) -> tuple[str, str]:
+def build_report_md(con, stale, warnings, news_block=None) -> tuple[str, str]:
     con.row_factory = sqlite3.Row
     latest = con.execute("SELECT MAX(date) FROM fact_retail_daily").fetchone()[0]
     if not latest:
@@ -594,6 +661,14 @@ def build_report_md(con, stale, warnings) -> tuple[str, str]:
     for r in changes[:40]:
         lines.append(f"- {config.BRANDS.get(r['brand_code'], {}).get('th', r['brand_code'])} "
                      f"{_pname(r['product_code'])}: {r['prev_price']:.2f} → {r['price']:.2f} ({r['change']:+.2f})")
+    recent = [ev for ev in (news_block or {}).get("events", []) if ev["effective_date"] >= prev]
+    if recent:
+        lines += ["", "**ข่าวแจ้งปรับราคา (ข่าวออนไลน์):**"]
+        for ev in recent[:3]:
+            f = ev.get("first") or {}
+            first = f"แจ้งเร็วที่สุด: {f['name']} {f['at'][11:16]} น. (จาก {len(ev['sites'])} เว็บ)" if f else "ยังระบุเว็บแรกไม่ได้"
+            lines.append(f"- มีผล {ev['effective_date']}: {DIR_TH.get(ev['direction'], '')} {', '.join(ev['fuels'])}"
+                         f"{' ' + ev['amount'] + ' บาท/ลิตร' if ev['amount'] else ''} - {first}")
     if warnings:
         lines += ["", "**ข้อสังเกตคุณภาพข้อมูล (warnings):**"] + [f"- {w}" for w in warnings[:20]]
     return latest, "\n".join(lines) + "\n"
@@ -628,16 +703,20 @@ def run(warnings: list[str] | None = None, end_date: str | None = None) -> dict:
     (config.SITE_OUT / ".nojekyll").write_text("")
 
     con = build_sqlite(daily, brand_rows, structure_rows, stale, archive_rows)
+    news_rows = read_csv(config.NEWS_CSV)
+    news_block = news.dashboard_block(news_rows)
+    add_news(con, news_rows, news_block)
     pivots = build_pivots(con)
+    pivots.update(news_pivots(news_block, news_rows))
     write_pivot_csvs(pivots)
     write_excel(pivots, daily, config.SITE_OUT / "downloads" / "oil_price_report.xlsx")
     for name in ("latest_prices", "monthly_avg", "yearly_avg"):
         shutil.copy(config.PIVOT_DIR / f"{name}.csv", config.SITE_OUT / "downloads" / f"{name}.csv")
-    dash = build_dashboard_json(con, daily, structure_rows, brand_rows, stale, warnings)
+    dash = build_dashboard_json(con, daily, structure_rows, brand_rows, stale, warnings, news_block)
     (config.SITE_OUT / "data" / "dashboard.json").write_text(
         json.dumps(dash, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 
-    latest, md = build_report_md(con, stale, warnings)
+    latest, md = build_report_md(con, stale, warnings, news_block)
     if md:
         config.DAILY_REPORT_DIR.mkdir(parents=True, exist_ok=True)
         (config.REPORTS_DIR / "latest.md").write_text(md, encoding="utf-8")

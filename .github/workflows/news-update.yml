@@ -1,0 +1,132 @@
+# Online news about retail oil price changes -> dashboard card "ข่าวแจ้งปรับราคาน้ำมัน"
+#  - every 20 minutes, 07:07-23:47 Bangkok (price changes are usually announced 17:00-21:00)
+#  - source: Google News RSS search (read-only, public, no key) - see scripts/eppo/news.py
+#  - commits data/news/ and redeploys the dashboard ONLY when new news was found
+#  - Manual: Actions > "News update" > Run workflow
+name: News update
+
+on:
+  schedule:
+    - cron: "7,27,47 0-16 * * *"   # UTC 00:07-16:47 = 07:07-23:47 Asia/Bangkok (GitHub may start late)
+  workflow_dispatch:
+
+# Least privilege: nothing by default, each job asks only for what it needs
+permissions: {}
+
+# Own group (NOT the daily job's): a queued run replaces the pending one of the same group,
+# which must never drop a daily price run. Pushes from both workflows are safe: this job only
+# commits data/news/ and rebases before pushing.
+concurrency:
+  group: oil-news
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  news:
+    name: Fetch oil price news
+    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
+    timeout-minutes: 15
+    permissions:
+      contents: write          # commit data/news/
+    outputs:
+      changed: ${{ steps.news.outputs.changed }}
+    steps:
+      - name: Harden runner - block every outbound connection except the allow-list
+        if: ${{ !vars.RUNNER_LABEL }}
+        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
+        with:
+          egress-policy: ${{ vars.EGRESS_POLICY || 'block' }}
+          disable-sudo: true
+          allowed-endpoints: >
+            news.google.com:443
+            github.com:443
+            api.github.com:443
+            codeload.github.com:443
+            objects.githubusercontent.com:443
+            release-assets.githubusercontent.com:443
+            pypi.org:443
+            files.pythonhosted.org:443
+            results-receiver.actions.githubusercontent.com:443
+            *.blob.core.windows.net:443
+            *.actions.githubusercontent.com:443
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies (hash-pinned)
+        run: python -m pip install --disable-pip-version-check --require-hashes -r requirements.txt
+
+      - name: Fetch news (Google News RSS)
+        id: news
+        run: python scripts/fetch_news.py
+
+      - name: Commit news (only if something changed)
+        if: steps.news.outputs.changed == 'true'
+        run: |
+          set -euo pipefail
+          git config user.name  "oil-price-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/news
+          if git diff --cached --quiet; then
+            echo "No news changes."
+          else
+            git commit -m "news: oil price news $(TZ=Asia/Bangkok date '+%F %H:%M') [${{ github.run_id }}]"
+            pushed=0
+            for i in 1 2 3 4 5; do
+              if git pull --rebase --quiet && git push; then pushed=1; break; fi
+              echo "::warning::git pull/push attempt $i failed - retrying in $((i * 15))s"
+              sleep $((i * 15))
+            done
+            [ "$pushed" = 1 ] || { echo "::error::Could not push news commit after 5 attempts"; exit 1; }
+          fi
+
+      # rebuild from the latest main (includes the newest daily prices) - offline, no network
+      - name: Rebuild dashboard
+        if: steps.news.outputs.changed == 'true'
+        run: python scripts/build_outputs.py
+
+      # Same retry as the daily job: harden-runner (block mode) can briefly refuse GitHub endpoints
+      - name: Upload dashboard for GitHub Pages
+        id: upload1
+        if: steps.news.outputs.changed == 'true'
+        continue-on-error: true
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: _site
+
+      - name: Wait before retrying upload
+        if: steps.upload1.outcome == 'failure'
+        run: |
+          echo "::warning::Pages upload failed (attempt 1) - retrying in 60s"
+          sleep 60
+
+      - name: Upload dashboard for GitHub Pages (retry)
+        if: steps.upload1.outcome == 'failure'
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: _site
+
+  deploy:
+    name: Deploy dashboard
+    needs: news
+    if: github.ref == 'refs/heads/main' && needs.news.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write             # deploy to GitHub Pages
+      id-token: write          # OIDC token required by deploy-pages (no stored secrets)
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

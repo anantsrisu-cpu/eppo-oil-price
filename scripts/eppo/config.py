@@ -40,7 +40,7 @@ def today_bkk() -> str:
 # ---------------------------------------------------------------- network
 # Only these hosts may ever be contacted by the pipeline (defence in depth,
 # the GitHub workflow additionally blocks all other egress with harden-runner).
-ALLOWED_HOSTS = {"www.eppo.go.th", "eppo.go.th"}
+ALLOWED_HOSTS = {"www.eppo.go.th", "eppo.go.th", "news.google.com"}
 
 EPPO_BASE = "https://www.eppo.go.th"
 OIL_PRICE_API = EPPO_BASE + "/wp-json/oil-api/v1/oil-prices"
@@ -152,6 +152,49 @@ STRUCTURE_FIELDS = [
     "marketing_margin", "vat_marketing_margin", "retail",
 ]
 
+# ---------------------------------------------------------------- online news (price-change announcements)
+# Google News RSS search = one feed that covers every Thai news site, with the publisher's
+# name/site (<source url=...>) and publication time (<pubDate>). Read-only, no login, no key.
+# Google keeps the exact time only for ~3 days (older items show 07:00 GMT), so the news job
+# polls often (.github/workflows/news-update.yml) and stores the first exact time it sees.
+NEWS_DIR = DATA_DIR / "news"
+NEWS_CSV = NEWS_DIR / "oil_price_news.csv"
+NEWS_META = NEWS_DIR / "news_meta.json"
+NEWS_RSS = "https://news.google.com/rss/search"
+NEWS_RSS_PARAMS = {"hl": "th", "gl": "TH", "ceid": "TH:th"}
+NEWS_QUERIES = [                      # each returns <= 100 items; keep the window short (when:2d)
+    "ราคาน้ำมัน when:2d",
+    "(ปรับขึ้น OR ปรับลด OR ขึ้นราคา OR ลดราคา OR ตรึงราคา) น้ำมัน when:2d",
+    "ราคาน้ำมันพรุ่งนี้ when:2d",
+    "กบน. ราคาน้ำมัน when:2d",
+    "(LPG OR ก๊าซหุงต้ม OR NGV) ราคา ปรับ when:2d",
+]
+# Re-publishers / social media / foreign sites: kept out of the "fastest site" ranking
+NEWS_EXCLUDE_DOMAINS = {
+    "facebook.com", "today.line.me", "th.headtopics.com", "headtopics.com", "news.google.com",
+    "msn.com", "vietnam.vn", "youtube.com", "x.com", "twitter.com", "tiktok.com", "instagram.com",
+    "news.trueid.net",
+}
+# Display names for well-known Thai news sites (others use the name Google News gives)
+NEWS_SOURCE_NAMES = {
+    "thairath.co.th": "ไทยรัฐ", "thansettakij.com": "ฐานเศรษฐกิจ", "bangkokbiznews.com": "กรุงเทพธุรกิจ",
+    "prachachat.net": "ประชาชาติธุรกิจ", "matichon.co.th": "มติชน", "khaosod.co.th": "ข่าวสด",
+    "mgronline.com": "ผู้จัดการออนไลน์", "thaipbs.or.th": "Thai PBS", "pptvhd36.com": "PPTV",
+    "sanook.com": "Sanook", "kaohoon.com": "ข่าวหุ้น", "js100.com": "จส.100", "siamrath.co.th": "สยามรัฐ",
+    "thebangkokinsight.com": "The Bangkok Insight", "komchadluek.net": "คมชัดลึก",
+    "nationtv.tv": "เนชั่นทีวี", "posttoday.com": "โพสต์ทูเดย์", "naewna.com": "แนวหน้า",
+    "dailynews.co.th": "เดลินิวส์", "infoquest.co.th": "อินโฟเควสท์", "amarintv.com": "อมรินทร์ทีวี",
+    "ch3plus.com": "ช่อง 3", "ch7.com": "ช่อง 7", "tnews.co.th": "TNews", "siamnews.com": "สยามนิวส์",
+    "thebetter.co.th": "THE BETTER", "energynewscenter.com": "Energy News Center",
+    "topnews.co.th": "TOP NEWS", "workpointtoday.com": "Workpoint Today", "springnews.co.th": "Spring News",
+    "mumkhao.com": "มุมข่าว", "ryt9.com": "RYT9", "mitihoon.com": "มิติหุ้น", "prachatai.com": "ประชาไท",
+    "thaitv5hd.com": "ททบ.5", "readthecloud.co": "The Cloud", "ebc.com": "EBC", "tnnthailand.com": "TNN",
+}
+NEWS_KEEP_DAILY_DAYS = 45            # price-list articles that never announced a change are pruned after this
+NEWS_DASHBOARD_DAYS = 180            # how much news history goes into the dashboard / ranking
+NEWS_TEMPLATE_TRUST_MIN = 60         # see news.reported_time()
+NEWS_MAX_TITLE = 300
+
 # ---------------------------------------------------------------- validation
 PRICE_MIN, PRICE_MAX = 10.0, 100.0      # Baht/litre sanity range
 MIN_BRANDS_EXPECTED = 5                 # fail the run if fewer brands come back
@@ -163,6 +206,11 @@ DAILY_JUMP_WARN = 0.15                  # warn if a price moves > 15% day-over-d
 BRAND_COLUMNS = [
     "snapshot_date", "brand_code", "brand_name_th", "product_code", "product_name_th",
     "price", "effective_date", "effective_time", "source", "fetched_at",
+]
+NEWS_COLUMNS = [
+    "guid", "source_domain", "source_name", "title", "link", "pub_at", "pub_precise",
+    "first_seen_at", "adjust_seen_at", "kind", "template", "direction", "fuels", "except_fuels",
+    "amounts", "effective_date",
 ]
 ARCHIVE_COLUMNS = ["announce_date", "brand_code", "product_code", "price", "effective_date",
                    "effective_time", "source_file"]
