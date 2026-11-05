@@ -39,6 +39,7 @@
 | warning `unknown structure row 'XXX'` | ชื่อแถวสินค้าใน Excel เปลี่ยน/สะกดผิด | เพิ่มคู่ `"XXX": "code"` ใน `STRUCTURE_PRODUCT_MAP` |
 | warning `big move …` | ราคาเปลี่ยน >15% ใน 1 วัน | ตรวจกับหน้าเว็บ สนพ. ว่าจริงหรือไม่ (ไม่หยุดระบบ) |
 | `ERROR: THESE PACKAGES DO NOT MATCH THE HASHES` | แก้ `requirements.txt` ไม่ครบ | ใช้เวอร์ชัน + hash ตาม PR ของ Dependabot เท่านั้น |
+| Deploy: `Multiple artifacts named "github-pages" were unexpectedly found` | (เวอร์ชันก่อน 5 พ.ย. 69) กด Re-run รอบที่ upload สำเร็จไปแล้ว ทำให้มี artifact ชื่อซ้ำใน run เดียวกัน | แก้แล้ว: ชื่อ artifact ไม่ซ้ำกันในแต่ละ attempt (`github-pages-<attempt>`) กด Re-run ได้ตามปกติ |
 | `git push` rejected | มีคนแก้ repo พร้อมกัน | ระบบ `pull --rebase` ให้ 3 ครั้งแล้ว — กด Re-run |
 | Dashboard 404 | Pages ยังไม่ได้ตั้งเป็น GitHub Actions / ยังไม่เคย deploy สำเร็จ | [SETUP ขั้นที่ 4](SETUP.md) แล้วรัน mode `rebuild` |
 | Dashboard ไม่อัปเดต | เบราว์เซอร์ cache หรือ job deploy ล้ม | กด Ctrl+F5 / ดู job **deploy** |
