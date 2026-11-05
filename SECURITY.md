@@ -7,9 +7,10 @@
 | เซิร์ฟเวอร์/ฐานข้อมูลถูกเจาะ | **ไม่มีเซิร์ฟเวอร์และฐานข้อมูลออนไลน์** — Dashboard เป็นไฟล์ static บน GitHub Pages (HTTPS) ผู้ใช้ดาวน์โหลดได้อย่างเดียว |
 | รหัสผ่าน/Token รั่ว | **ไม่มี secret ใด ๆ** — ข้อมูล สนพ. เป็นสาธารณะ ไม่ต้อง login. การ commit ใช้ `GITHUB_TOKEN` ชั่วคราวที่ GitHub ออกให้ต่อรัน (หมดอายุเมื่อรันจบ), deploy ใช้ OIDC |
 | เครือข่ายองค์กรถูกโจมตีผ่านระบบนี้ | GitHub เป็นตัวกลาง: runner ของ GitHub เป็นฝ่ายเชื่อมต่อ สนพ. — เครือข่ายองค์กรไม่ต้องเปิดพอร์ต ไม่ต้องเชื่อมเว็บภายนอก ผู้ใช้เพียงเปิดดูหน้า github.io |
-| สคริปต์ถูกหลอกให้ต่อเว็บอันตราย / ส่งข้อมูลออก | 2 ชั้น: (1) **harden-runner block mode** บล็อกทุกการเชื่อมต่อขาออกที่ไม่อยู่ใน allow-list (eppo.go.th, github, pypi) (2) โค้ด `http.py` มี allow-list โฮสต์, บังคับ HTTPS + ตรวจใบรับรอง, ตรวจ redirect, จำกัดขนาด 5 MB, timeout |
+| สคริปต์ถูกหลอกให้ต่อเว็บอันตราย / ส่งข้อมูลออก | 2 ชั้น: (1) **harden-runner block mode** บล็อกทุกการเชื่อมต่อขาออกที่ไม่อยู่ใน allow-list (eppo.go.th, news.google.com, github, pypi — workflow ข่าวอนุญาตเฉพาะ news.google.com ไม่รวม eppo) (2) โค้ด `http.py` มี allow-list โฮสต์, บังคับ HTTPS + ตรวจใบรับรอง, ตรวจ redirect, จำกัดขนาด 5 MB, timeout |
 | ข้อมูลต้นทางถูกปลอม/ผิดพลาด | ตรวจช่วงราคา 10–100 บาท, จำนวนแบรนด์/ราคาขั้นต่ำ, ห้ามซ้ำ, แจ้งเตือนราคากระโดด >15%, ตรวจยอดโครงสร้างราคารวมเท่าราคาขายปลีก — ถ้าไม่ผ่าน **ไม่ commit** |
 | XSS / โค้ดแปลกปลอมใน Dashboard | CSP เข้มงวด (`script-src 'self'`, ห้าม inline script, ห้ามโหลดจากโดเมนอื่น), **ไม่มี JavaScript ภายนอก/CDN**, ข้อความจากข้อมูลใส่ด้วย `textContent` เท่านั้น |
+| ข่าวออนไลน์ (RSS) ถูกใช้โจมตี | อ่านอย่างเดียวจาก `news.google.com` (allow-list), ปฏิเสธ XML ที่มี DTD/ENTITY (XXE, billion laughs), ตัด HTML/อักขระควบคุมออกจากหัวข่าว, รับเฉพาะลิงก์ `https://` (ทั้งใน Python และ JS), เปิดลิงก์ด้วย `rel="noopener noreferrer"` |
 | CSV/Excel formula injection | ข้อความที่ขึ้นต้นด้วย `= + - @` ถูกใส่ `'` นำหน้าในไฟล์ Excel/CSV ที่ export |
 | Supply-chain (แพ็กเกจ/Action ถูกแทรกโค้ด) | Python ใช้แพ็กเกจภายนอก **ตัวเดียว** (openpyxl) ล็อกเวอร์ชัน + **SHA-256 hash**; GitHub Actions **ล็อกด้วย commit SHA**; Dependabot แจ้งอัปเดตทุกสัปดาห์; จำกัด Action ที่อนุญาตในการตั้งค่า repo |
 | สิทธิ์ workflow มากเกินจำเป็น | `permissions: {}` เป็นค่าเริ่มต้น; job update ได้แค่ `contents: write`; job deploy ได้แค่ `pages: write` + `id-token: write`; CI ได้แค่ `contents: read` |
