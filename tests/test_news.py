@@ -135,6 +135,15 @@ class TestMergeAndRanking(unittest.TestCase):
         rk = news.ranking(news.build_events(rows, news.iso(first)))
         self.assertEqual(rk[0]["domain"], "mgronline.com")
 
+    def test_aggregator_only_date_is_not_an_event(self):
+        feed = rss(("h1", "Wed, 04 Nov 2026 12:53:00 GMT", "https://th.headtopics.com",
+                    "ปรับลดราคาน้ำมันแก๊สโซฮอล์ ยกเว้น E85 ลิตรละ 0.7 บาท มีผล 4 พ.ย. 2569"),
+                   ("p1", "Wed, 04 Nov 2026 12:09:00 GMT", "https://www.prachachat.net",
+                    "กบน. เคาะลดราคาน้ำมันกลุ่มเบนซิน 70 สต. ยกเว้น E85 มีผล 5 พ.ย. 69"))
+        t0 = at("2026-11-05T08:00")
+        rows, _ = news.merge([], news.parse_rss(feed), t0)
+        self.assertEqual([e["effective_date"] for e in news.build_events(rows, news.iso(t0))], ["2026-11-05"])
+
     def test_template_title_change_uses_time_we_saw_it(self):
         guid = "tpl1"
         p1 = rss((guid, "Wed, 04 Nov 2026 10:00:00 GMT", "https://www.thansettakij.com",
