@@ -2,33 +2,34 @@ rank,site,domain,times_first,times_top3,events_reported,median_minutes_behind_fi
 1,ผู้จัดการออนไลน์,mgronline.com,3,4,4,0
 2,Car2Day,car2day.com,1,1,1,0
 3,spacebar.th,spacebar.th,1,1,1,0
-4,โพสต์ทูเดย์,posttoday.com,0,2,2,156
-5,Unisba Media,media.unisba.ac.id,0,2,2,247
-6,PPTV,pptvhd36.com,0,2,2,1127
-7,News.in.th,news.in.th,0,2,2,1508
-8,Thai PBS,thaipbs.or.th,0,1,2,156
-9,เดลินิวส์,dailynews.co.th,0,1,2,221
-10,อมรินทร์ทีวี,amarintv.com,0,0,1,40
-11,แนวหน้า,naewna.com,0,0,1,49
-12,คมชัดลึก,komchadluek.net,0,0,1,63
-13,ข่าวหุ้น,kaohoon.com,0,0,1,111
-14,กรุงเทพธุรกิจ,bangkokbiznews.com,0,0,2,159
-15,ฐานเศรษฐกิจ,thansettakij.com,0,0,2,182
-16,The Bangkok Insight,thebangkokinsight.com,0,0,2,210
-17,ไทยรัฐ,thairath.co.th,0,0,2,211
-18,จส.100,js100.com,0,0,2,224
-19,ข่าวสด,khaosod.co.th,0,0,1,312
-20,SondhiX,sondhitalk.com,0,0,1,331
-21,สยามนิวส์,siamnews.com,0,0,1,344
-22,สยามรัฐ,siamrath.co.th,0,0,2,346
-23,มติชน,matichon.co.th,0,0,2,353
-24,TOP NEWS,topnews.co.th,0,0,1,355
-25,สวพ.FM91,fm91bkk.com,0,0,1,371
-26,Sanook,sanook.com,0,0,2,376
-27,News1Live,news1live.com,0,0,1,386
-28,ช่อง 7,ch7.com,0,0,1,775
-29,AEC10NEWS,aec10news.com,0,0,2,876
-30,efinanceThai,efinancethai.com,0,0,2,1084
-31,Thaipost.net,thaipost.net,0,0,1,1126
-32,TNN,tnnthailand.com,0,0,1,1303
-33,THE BETTER,thebetter.co.th,0,0,1,1403
+4,กรุงเทพธุรกิจ,bangkokbiznews.com,1,1,3,14
+5,ฐานเศรษฐกิจ,thansettakij.com,1,1,3,59
+6,โพสต์ทูเดย์,posttoday.com,0,3,3,16
+7,Thai PBS,thaipbs.or.th,0,2,3,11
+8,Unisba Media,media.unisba.ac.id,0,2,2,247
+9,News.in.th,news.in.th,0,2,3,1064
+10,PPTV,pptvhd36.com,0,2,2,1127
+11,เดลินิวส์,dailynews.co.th,0,1,2,221
+12,มติชน,matichon.co.th,0,0,3,26
+13,มุมข่าว,mumkhao.com,0,0,1,31
+14,อมรินทร์ทีวี,amarintv.com,0,0,1,40
+15,แนวหน้า,naewna.com,0,0,1,49
+16,คมชัดลึก,komchadluek.net,0,0,1,63
+17,ข่าวหุ้น,kaohoon.com,0,0,2,70
+18,Sanook,sanook.com,0,0,3,73
+19,The Bangkok Insight,thebangkokinsight.com,0,0,3,77
+20,ไทยรัฐ,thairath.co.th,0,0,3,78
+21,จส.100,js100.com,0,0,3,112
+22,สยามรัฐ,siamrath.co.th,0,0,3,133
+23,ข่าวสด,khaosod.co.th,0,0,2,168
+24,สวพ.FM91,fm91bkk.com,0,0,2,235
+25,SondhiX,sondhitalk.com,0,0,1,331
+26,สยามนิวส์,siamnews.com,0,0,1,344
+27,TOP NEWS,topnews.co.th,0,0,1,355
+28,News1Live,news1live.com,0,0,1,386
+29,ช่อง 7,ch7.com,0,0,2,746
+30,AEC10NEWS,aec10news.com,0,0,2,876
+31,efinanceThai,efinancethai.com,0,0,2,1084
+32,Thaipost.net,thaipost.net,0,0,1,1126
+33,THE BETTER,thebetter.co.th,0,0,2,1216
+34,TNN,tnnthailand.com,0,0,1,1303
