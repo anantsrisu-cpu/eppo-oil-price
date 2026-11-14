@@ -21,10 +21,10 @@ rank,site,domain,times_first,times_top3,events_reported,median_minutes_behind_fi
 20,แนวหน้า,naewna.com,0,0,1,49
 21,คมชัดลึก,komchadluek.net,0,0,1,63
 22,ข่าวหุ้น,kaohoon.com,0,0,2,70
-23,ไทยรัฐ,thairath.co.th,0,0,3,78
-24,The Bangkok Insight,thebangkokinsight.com,0,0,4,109
-25,จส.100,js100.com,0,0,3,112
-26,สยามรัฐ,siamrath.co.th,0,0,3,133
+23,The Bangkok Insight,thebangkokinsight.com,0,0,4,109
+24,จส.100,js100.com,0,0,3,112
+25,สยามรัฐ,siamrath.co.th,0,0,3,133
+26,ไทยรัฐ,thairath.co.th,0,0,4,211
 27,สวพ.FM91,fm91bkk.com,0,0,2,235
 28,ข่าวสด,khaosod.co.th,0,0,3,312
 29,SondhiX,sondhitalk.com,0,0,1,331
@@ -39,4 +39,5 @@ rank,site,domain,times_first,times_top3,events_reported,median_minutes_behind_fi
 38,Autotirechecking,autotirechecking.com,0,0,1,1536
 39,ช่อง 3,ch3plus.com,0,0,1,1757
 40,ThaiPR.NET,thaipr.net,0,0,1,2061
-41,BiztalkNEWS,biztalknews.com,0,0,1,2770
+41,The Cloud,readthecloud.co,0,0,1,2831
+42,BiztalkNEWS,biztalknews.com,0,0,1,3136
