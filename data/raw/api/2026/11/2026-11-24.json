@@ -129,8 +129,8 @@
    "oil_shell_time": "00:01"
   },
   "susco1": {
-   "oil_susco1_date": "2026-11-19",
-   "oil_susco1_ds": "39.99",
+   "oil_susco1_date": "2026-11-24",
+   "oil_susco1_ds": "39.94",
    "oil_susco1_dsb10": "-",
    "oil_susco1_dsb20": "33.50",
    "oil_susco1_e20": "30.10",
@@ -142,7 +142,7 @@
    "oil_susco1_gs95p": "-",
    "oil_susco1_gs99p": "-",
    "oil_susco1_pds": "-",
-   "oil_susco1_time": "05:00"
+   "oil_susco1_time": "00:01"
   },
   "susco2": {
    "oil_susco2_date": "2026-11-19",
@@ -161,6 +161,6 @@
    "oil_susco2_time": "05:00"
   }
  },
- "last_updated": "21 November 2026",
+ "last_updated": "24 November 2026",
  "status": "success"
 }
