@@ -1,22 +1,22 @@
 rank,site,domain,times_first,times_top3,events_reported,median_minutes_behind_first
 1,ผู้จัดการออนไลน์,mgronline.com,4,5,6,0
-2,Unisba Media,media.unisba.ac.id,1,3,3,137
-3,ช่อง 7,ch7.com,1,3,6,591
-4,Sanook,sanook.com,1,2,7,73
-5,กรุงเทพธุรกิจ,bangkokbiznews.com,1,2,5,102
-6,ฐานเศรษฐกิจ,thansettakij.com,1,2,7,158
-7,Car2Day,car2day.com,1,1,1,0
-8,Share2Trade,share2trade.com,1,1,1,0
-9,spacebar.th,spacebar.th,1,1,1,0
-10,thestandard.co,thestandard.co,1,1,1,0
-11,ช่อง 3,ch3plus.com,1,1,3,48
-12,TOP NEWS,topnews.co.th,1,1,3,54
-13,News1Live,news1live.com,1,1,2,193
-14,Thai PBS,thaipbs.or.th,0,3,5,11
+2,Thai PBS,thaipbs.or.th,1,4,6,7
+3,ฐานเศรษฐกิจ,thansettakij.com,1,3,8,108
+4,Unisba Media,media.unisba.ac.id,1,3,3,137
+5,ช่อง 7,ch7.com,1,3,6,591
+6,Sanook,sanook.com,1,2,8,96
+7,กรุงเทพธุรกิจ,bangkokbiznews.com,1,2,6,110
+8,Car2Day,car2day.com,1,1,1,0
+9,Share2Trade,share2trade.com,1,1,1,0
+10,spacebar.th,spacebar.th,1,1,1,0
+11,thestandard.co,thestandard.co,1,1,1,0
+12,ช่อง 3,ch3plus.com,1,1,3,48
+13,TOP NEWS,topnews.co.th,1,1,3,54
+14,News1Live,news1live.com,1,1,2,193
 15,โพสต์ทูเดย์,posttoday.com,0,3,3,16
-16,News.in.th,news.in.th,0,2,3,1064
-17,PPTV,pptvhd36.com,0,2,2,1127
-18,มติชน,matichon.co.th,0,1,5,26
+16,มติชน,matichon.co.th,0,2,6,26
+17,News.in.th,news.in.th,0,2,3,1064
+18,PPTV,pptvhd36.com,0,2,2,1127
 19,autoinfo.co.th,autoinfo.co.th,0,1,1,32
 20,เดลินิวส์,dailynews.co.th,0,1,3,438
 21,kapook.com,money.kapook.com,0,1,1,496
@@ -24,27 +24,28 @@ rank,site,domain,times_first,times_top3,events_reported,median_minutes_behind_fi
 23,มุมข่าว,mumkhao.com,0,0,2,40
 24,อมรินทร์ทีวี,amarintv.com,0,0,2,40
 25,คมชัดลึก,komchadluek.net,0,0,1,63
-26,แนวหน้า,naewna.com,0,0,2,66
-27,สวพ.FM91,fm91bkk.com,0,0,3,99
-28,The Bangkok Insight,thebangkokinsight.com,0,0,6,109
-29,ข่าวหุ้น,kaohoon.com,0,0,3,111
-30,จส.100,js100.com,0,0,5,112
-31,สยามรัฐ,siamrath.co.th,0,0,5,133
-32,ไทยรัฐ,thairath.co.th,0,0,6,164
+26,The Bangkok Insight,thebangkokinsight.com,0,0,7,77
+27,ไทยรัฐ,thairath.co.th,0,0,7,78
+28,สยามรัฐ,siamrath.co.th,0,0,6,82
+29,แนวหน้า,naewna.com,0,0,3,83
+30,จส.100,js100.com,0,0,6,92
+31,ข่าวหุ้น,kaohoon.com,0,0,4,98
+32,สวพ.FM91,fm91bkk.com,0,0,3,99
 33,SondhiX,sondhitalk.com,0,0,1,331
-34,สยามนิวส์,siamnews.com,0,0,2,341
-35,AEC10NEWS,aec10news.com,0,0,3,754
-36,อินโฟเควสท์,infoquest.co.th,0,0,2,846
-37,efinanceThai,efinancethai.com,0,0,3,847
-38,ข่าวสด,khaosod.co.th,0,0,4,961
-39,efin.finance,efin.finance,0,0,1,964
-40,Thaiger,thethaiger.com,0,0,1,995
-41,siamturakij.com,siamturakij.com,0,0,1,1144
-42,Workpoint TV,workpointtv.com,0,0,1,1165
-43,THE BETTER,thebetter.co.th,0,0,3,1261
-44,TNN,tnnthailand.com,0,0,1,1303
-45,Autotirechecking,autotirechecking.com,0,0,3,1536
-46,ThaiPR.NET,thaipr.net,0,0,1,2061
-47,The Cloud,readthecloud.co,0,0,1,2831
-48,BiztalkNEWS,biztalknews.com,0,0,1,3136
-49,SiamCar,siamcar.com,0,0,1,3156
+34,สยามนิวส์,siamnews.com,0,0,3,338
+35,เนชั่นทีวี,nationtv.tv,0,0,1,515
+36,AEC10NEWS,aec10news.com,0,0,3,754
+37,อินโฟเควสท์,infoquest.co.th,0,0,2,846
+38,efinanceThai,efinancethai.com,0,0,3,847
+39,ข่าวสด,khaosod.co.th,0,0,4,961
+40,efin.finance,efin.finance,0,0,1,964
+41,Thaiger,thethaiger.com,0,0,2,1112
+42,Workpoint TV,workpointtv.com,0,0,2,1129
+43,siamturakij.com,siamturakij.com,0,0,1,1144
+44,Autotirechecking,autotirechecking.com,0,0,4,1220
+45,THE BETTER,thebetter.co.th,0,0,4,1244
+46,TNN,tnnthailand.com,0,0,1,1303
+47,ThaiPR.NET,thaipr.net,0,0,1,2061
+48,SiamCar,siamcar.com,0,0,2,2192
+49,The Cloud,readthecloud.co,0,0,1,2831
+50,BiztalkNEWS,biztalknews.com,0,0,1,3136
