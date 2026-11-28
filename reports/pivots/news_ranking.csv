@@ -1,51 +1,51 @@
 rank,site,domain,times_first,times_top3,events_reported,median_minutes_behind_first
 1,ผู้จัดการออนไลน์,mgronline.com,4,6,7,0
-2,Thai PBS,thaipbs.or.th,1,4,7,11
-3,ฐานเศรษฐกิจ,thansettakij.com,1,4,9,158
-4,Sanook,sanook.com,1,3,9,118
+2,ฐานเศรษฐกิจ,thansettakij.com,2,4,9,59
+3,Sanook,sanook.com,2,3,9,73
+4,Thai PBS,thaipbs.or.th,1,5,7,11
 5,Unisba Media,media.unisba.ac.id,1,3,3,137
 6,ช่อง 7,ch7.com,1,3,6,591
-7,กรุงเทพธุรกิจ,bangkokbiznews.com,1,2,7,118
-8,Car2Day,car2day.com,1,1,1,0
-9,Share2Trade,share2trade.com,1,1,1,0
-10,spacebar.th,spacebar.th,1,1,1,0
-11,thestandard.co,thestandard.co,1,1,1,0
-12,TOP NEWS,topnews.co.th,1,1,3,54
-13,News1Live,news1live.com,1,1,2,193
-14,ช่อง 3,ch3plus.com,1,1,4,214
-15,โพสต์ทูเดย์,posttoday.com,0,4,4,158
-16,มติชน,matichon.co.th,0,2,7,26
-17,News.in.th,news.in.th,0,2,3,1064
-18,PPTV,pptvhd36.com,0,2,2,1127
-19,autoinfo.co.th,autoinfo.co.th,0,1,1,32
-20,เดลินิวส์,dailynews.co.th,0,1,3,438
-21,kapook.com,money.kapook.com,0,1,1,496
-22,Thaipost.net,thaipost.net,0,1,2,586
-23,อมรินทร์ทีวี,amarintv.com,0,0,2,40
-24,มุมข่าว,mumkhao.com,0,0,3,50
-25,แนวหน้า,naewna.com,0,0,4,77
-26,The Bangkok Insight,thebangkokinsight.com,0,0,8,109
-27,ข่าวหุ้น,kaohoon.com,0,0,5,111
-28,จส.100,js100.com,0,0,7,112
-29,สยามรัฐ,siamrath.co.th,0,0,7,133
-30,ไทยรัฐ,thairath.co.th,0,0,8,164
-31,สวพ.FM91,fm91bkk.com,0,0,4,235
-32,คมชัดลึก,komchadluek.net,0,0,2,240
-33,SondhiX,sondhitalk.com,0,0,1,331
-34,สยามนิวส์,siamnews.com,0,0,4,341
-35,ข่าวสด,khaosod.co.th,0,0,5,376
+7,News.in.th,news.in.th,1,3,4,622
+8,กรุงเทพธุรกิจ,bangkokbiznews.com,1,2,7,118
+9,Car2Day,car2day.com,1,1,1,0
+10,Share2Trade,share2trade.com,1,1,1,0
+11,spacebar.th,spacebar.th,1,1,1,0
+12,thestandard.co,thestandard.co,1,1,1,0
+13,ช่อง 3,ch3plus.com,1,1,4,36
+14,สยามนิวส์,siamnews.com,1,1,5,38
+15,TOP NEWS,topnews.co.th,1,1,3,54
+16,News1Live,news1live.com,1,1,2,193
+17,โพสต์ทูเดย์,posttoday.com,0,4,4,13
+18,มติชน,matichon.co.th,0,2,7,26
+19,PPTV,pptvhd36.com,0,2,2,1127
+20,autoinfo.co.th,autoinfo.co.th,0,1,1,32
+21,เดลินิวส์,dailynews.co.th,0,1,3,438
+22,kapook.com,money.kapook.com,0,1,1,496
+23,Thaipost.net,thaipost.net,0,1,2,586
+24,อมรินทร์ทีวี,amarintv.com,0,0,2,40
+25,มุมข่าว,mumkhao.com,0,0,3,50
+26,คมชัดลึก,komchadluek.net,0,0,2,63
+27,The Bangkok Insight,thebangkokinsight.com,0,0,8,71
+28,จส.100,js100.com,0,0,7,73
+29,แนวหน้า,naewna.com,0,0,4,77
+30,ไทยรัฐ,thairath.co.th,0,0,8,79
+31,ข่าวหุ้น,kaohoon.com,0,0,5,85
+32,สวพ.FM91,fm91bkk.com,0,0,4,102
+33,สยามรัฐ,siamrath.co.th,0,0,7,133
+34,ข่าวสด,khaosod.co.th,0,0,5,312
+35,SondhiX,sondhitalk.com,0,0,1,331
 36,เนชั่นทีวี,nationtv.tv,0,0,1,515
-37,อินโฟเควสท์,infoquest.co.th,0,0,3,824
-38,efinanceThai,efinancethai.com,0,0,3,847
-39,AEC10NEWS,aec10news.com,0,0,4,876
-40,efin.finance,efin.finance,0,0,2,1079
-41,Thaiger,thethaiger.com,0,0,2,1112
-42,Autotirechecking,autotirechecking.com,0,0,5,1115
+37,AEC10NEWS,aec10news.com,0,0,4,710
+38,อินโฟเควสท์,infoquest.co.th,0,0,3,824
+39,efinanceThai,efinancethai.com,0,0,3,847
+40,efin.finance,efin.finance,0,0,2,902
+41,Autotirechecking,autotirechecking.com,0,0,5,905
+42,Thaiger,thethaiger.com,0,0,2,1112
 43,Workpoint TV,workpointtv.com,0,0,2,1129
 44,siamturakij.com,siamturakij.com,0,0,1,1144
-45,THE BETTER,thebetter.co.th,0,0,5,1261
-46,TNN,tnnthailand.com,0,0,1,1303
-47,SiamCar,siamcar.com,0,0,3,1537
+45,THE BETTER,thebetter.co.th,0,0,5,1228
+46,SiamCar,siamcar.com,0,0,3,1228
+47,TNN,tnnthailand.com,0,0,1,1303
 48,ThaiPR.NET,thaipr.net,0,0,1,2061
 49,The Cloud,readthecloud.co,0,0,1,2831
 50,BiztalkNEWS,biztalknews.com,0,0,1,3136
